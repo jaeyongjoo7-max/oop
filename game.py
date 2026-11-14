@@ -15,6 +15,7 @@ class Game:
         self.players = ["1P", "2P"]    # 임시: B의 Player 객체로 바꾼다
         self.turn_index = 0            # 지금 차례인 사람의 번호 (0 또는 1)
         self.turn_count = 0            # 지금까지 턴 수
+        self.deck = None               # 임시: A의 CardDeck 객체로 바꾼다
         self.state = RollState(self)   # 현재 상태 객체 하나
 
     def change_state(self, new_state):
@@ -42,6 +43,19 @@ class Game:
         self.next_player()
         self.log(f"{self.current_player} 차례")
         self.change_state(RollState(self))
+
+    # A의 칸·카드가 부르는 메서드. 지금은 이름만 있고, 합친 뒤에 채운다.
+    def ask_buy(self, tile):                   # 빈 땅 도착: 살지 묻기
+        self.log("ask_buy 호출됨")
+
+    def ask_build(self, tile):                 # 내 땅 도착: 지을지 묻기
+        self.log("ask_build 호출됨")
+
+    def ask_acquire(self, tile):               # 상대 땅 도착: 인수할지 묻기
+        self.log("ask_acquire 호출됨")
+
+    def move_player_to(self, p, i, salary):    # 플레이어 p를 i번 칸으로 옮기기
+        self.log("move_player_to 호출됨")
 
     def run(self):
         while self.running:                        # 무한 루프
