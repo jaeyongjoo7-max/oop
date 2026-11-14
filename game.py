@@ -12,6 +12,8 @@ class Game:
         pygame.display.set_caption(config.TITLE)
         self.clock = pygame.time.Clock()
         self.running = True
+        self.players = ["1P", "2P"]    # 임시: B의 Player 객체로 바꾼다
+        self.turn_index = 0            # 지금 차례인 사람의 번호 (0 또는 1)
         self.state = RollState(self)   # 현재 상태 객체 하나
 
     def change_state(self, new_state):
@@ -19,6 +21,22 @@ class Game:
 
     def log(self, msg):
         print(msg)                     # 임시: B의 MessageLog가 오면 바꾼다
+    
+    @property
+    def current_player(self):          # 지금 차례인 사람
+        return self.players[self.turn_index]
+
+    @property
+    def opponent(self):                # 상대
+        return self.players[1 - self.turn_index]
+
+    def next_player(self):
+        self.turn_index = 1 - self.turn_index      # 0이면 1로, 1이면 0으로
+
+    def end_turn(self):                # 턴 끝내기
+        self.next_player()
+        self.log(f"{self.current_player} 차례")
+        self.change_state(RollState(self))
 
     def run(self):
         while self.running:                        # 무한 루프

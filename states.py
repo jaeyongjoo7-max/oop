@@ -47,7 +47,7 @@ class MovingState(GameState):          # 말이 움직이는 중
         self.elapsed += dt             # 매 프레임 지난 시간을 더한다
         if self.elapsed >= config.MOVE_TIME:
             self.game.log("이동 끝")
-            self.game.change_state(RollState(self.game))
+            self.game.end_turn()                 # 다음 상태는 Game이 정함
 
     def draw(self, surface):
         # 임시 표시: 나중에 말 이동 애니메이션으로 바꾼다
