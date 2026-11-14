@@ -53,3 +53,21 @@ class MovingState(GameState):          # 말이 움직이는 중
         # 임시 표시: 나중에 말 이동 애니메이션으로 바꾼다
         center = (config.SCREEN_WIDTH // 2, config.SCREEN_HEIGHT // 2)
         pygame.draw.circle(surface, config.P1_RED, center, 40)
+
+class GameOverState(GameState):        # 게임 끝
+    def __init__(self, game, winner, reason):
+        super().__init__(game)
+        self.winner = winner           # 이긴 사람 (아직 없으면 None)
+        self.reason = reason           # 끝난 이유
+        self.game.log(f"게임 끝: {reason}")
+
+    def handle_event(self, event):
+        pass                           # 나중에: 다시 하기 버튼
+
+    def update(self, dt):
+        pass
+
+    def draw(self, surface):
+        # 임시 표시: 나중에 결과 화면으로 바꾼다
+        center = (config.SCREEN_WIDTH // 2, config.SCREEN_HEIGHT // 2)
+        pygame.draw.circle(surface, config.WHITE, center, 40)

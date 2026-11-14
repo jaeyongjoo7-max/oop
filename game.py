@@ -1,7 +1,7 @@
 # game.py : 게임 루프, 상태 바꾸기, 그리는 순서
 import pygame
 import config
-from states import RollState
+from states import RollState, GameOverState
 
 
 class Game:
@@ -14,6 +14,7 @@ class Game:
         self.running = True
         self.players = ["1P", "2P"]    # 임시: B의 Player 객체로 바꾼다
         self.turn_index = 0            # 지금 차례인 사람의 번호 (0 또는 1)
+        self.turn_count = 0            # 지금까지 턴 수
         self.state = RollState(self)   # 현재 상태 객체 하나
 
     def change_state(self, new_state):
@@ -34,6 +35,10 @@ class Game:
         self.turn_index = 1 - self.turn_index      # 0이면 1로, 1이면 0으로
 
     def end_turn(self):                # 턴 끝내기
+        if self.turn_count >= config.MAX_TURNS:
+            self.change_state(GameOverState(self, None, "턴 다 씀"))
+            return
+        self.turn_count += 1
         self.next_player()
         self.log(f"{self.current_player} 차례")
         self.change_state(RollState(self))
