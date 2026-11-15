@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import random
 import config
 
 WAIT = None    # 사람: "버튼을 기다려 주세요" (지침서 5쪽)
@@ -71,6 +72,10 @@ class Player(ABC):
     def decide_acquire(self, tile):     # True / False / WAIT
         pass
 
+    @abstractmethod
+    def choose_roll(self):              # 게이지 구간 0/1/2 또는 WAIT
+        pass
+
 
 class HumanPlayer(Player):
     """사람: 바로 답하지 않고 버튼을 기다린다."""
@@ -84,6 +89,9 @@ class HumanPlayer(Player):
     def decide_acquire(self, tile):
         return WAIT
 
+    def choose_roll(self):
+        return WAIT         # 굴리기 버튼을 누를 때까지 기다림
+
 
 class AIPlayer(Player):
     """AI: 그 자리에서 바로 답한다."""
@@ -96,6 +104,9 @@ class AIPlayer(Player):
 
     def decide_acquire(self, tile):
         return False    # 임시: 인수 가격이 정해지면 채운다
+
+    def choose_roll(self):
+        return random.randint(0, 2)     # 임시: 게이지 구간을 아무거나 고름
 
 
 if __name__ == "__main__":
