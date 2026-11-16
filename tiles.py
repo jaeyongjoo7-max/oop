@@ -91,7 +91,7 @@ class ChanceTile(Tile):
     """황금열쇠. 카드를 한 장 뽑아 실행한다 (카드가 할 일은 카드가 안다)."""
 
     def on_land(self, player, game):
-        card = game.deck.draw_card()
+        card = game.deck.draw()
         game.log(f"{player.name}: 황금열쇠 「{card.title}」")
         card.execute(player, game)
 

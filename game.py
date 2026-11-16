@@ -2,28 +2,43 @@
 import pygame
 import config
 from states import RollState, GameOverState
+from board import Board
+from cards import CardDeck
+from player import HumanPlayer, AIPlayer
+from dice import DiceSet
+from ui import RollGauge, MessageLog, PlayerInfo, draw_pawn
 
 
 class Game:
     def __init__(self):
         pygame.init()
-        self.screen = pygame.display.set_mode(
-            (config.SCREEN_W, config.SCREEN_H))
+        self.screen = pygame.display.set_mode((config.SCREEN_W, config.SCREEN_H))
         pygame.display.set_caption(config.TITLE)
         self.clock = pygame.time.Clock()
         self.running = True
-        self.players = ["1P", "2P"]    # 임시: B의 Player 객체로 바꾼다
+
+        # 팀원이 만든 부품을 Game이 가지고 있다 (컴포지션)
+        self.board = Board()                                   # A
+        self.deck = CardDeck()                                 # A
+        self.players = [HumanPlayer("플레이어 1", config.P1_RED),   # B
+                        AIPlayer("플레이어 2", config.P2_BLUE)]
+        self.dice = DiceSet()                                  # B
+        self.gauge = RollGauge(config.GAUGE_CENTER, config.ROLL_BUTTON_CENTER)
+        self.message_log = MessageLog(config.LOG_POS)
+        self.infos = [PlayerInfo(self.players[0], config.P1_PANEL_POS),
+                      PlayerInfo(self.players[1], config.P2_PANEL_POS)]
+
         self.turn_index = 0            # 지금 차례인 사람의 번호 (0 또는 1)
         self.turn_count = 0            # 지금까지 턴 수
-        self.deck = None               # 임시: A의 CardDeck 객체로 바꾼다
         self.state = RollState(self)   # 현재 상태 객체 하나
+        self.log(f"{self.current_player.name} 차례")
 
     def change_state(self, new_state):
         self.state = new_state
 
     def log(self, msg):
-        print(msg)                     # 임시: B의 MessageLog가 오면 바꾼다
-    
+        self.message_log.add(msg)      # 화면 오른쪽 아래 말풍선
+
     @property
     def current_player(self):          # 지금 차례인 사람
         return self.players[self.turn_index]
@@ -41,18 +56,18 @@ class Game:
             return
         self.turn_count += 1
         self.next_player()
-        self.log(f"{self.current_player} 차례")
+        self.log(f"{self.current_player.name} 차례")
         self.change_state(RollState(self))
 
-    # A의 칸·카드가 부르는 메서드. 지금은 이름만 있고, 합친 뒤에 채운다.
+    # A의 칸·카드가 부르는 메서드. 지금은 이름만 있고, 다음 단계에서 채운다.
     def ask_buy(self, tile):                   # 빈 땅 도착: 살지 묻기
-        self.log("ask_buy 호출됨")
+        self.log(f"{tile.name}: 살 수 있는 땅")
 
     def ask_build(self, tile):                 # 내 땅 도착: 지을지 묻기
-        self.log("ask_build 호출됨")
+        self.log(f"{tile.name}: 내 땅")
 
     def ask_acquire(self, tile):               # 상대 땅 도착: 인수할지 묻기
-        self.log("ask_acquire 호출됨")
+        self.log(f"{tile.name}: 인수할 수 있는 땅")
 
     def move_player_to(self, p, i, salary):    # 플레이어 p를 i번 칸으로 옮기기
         self.log("move_player_to 호출됨")
@@ -70,6 +85,27 @@ class Game:
         pygame.quit()
 
     def draw(self):
-        self.screen.fill(config.NAVY)              # 배경 채우기
-        self.state.draw(self.screen)               # 지금 상태가 자기를 그림
+        # 그리는 순서는 Game이 정한다: 뒤에 그린 것이 위에 보인다
+        self.screen.fill(config.NAVY)              # 1) 배경
+        self.board.draw(self.screen)               # 2) 판
+        self._draw_pawns()                         # 3) 말
+        self._update_panels()
+        for info in self.infos:                    # 4) 1P·2P 패널
+            info.draw(self.screen)
+        self.message_log.draw(self.screen)         # 5) 기록
+        self.state.draw(self.screen)               # 6) 지금 상태가 자기 화면을 그림
         pygame.display.flip()                      # 윈도우 업데이트
+
+    def _draw_pawns(self):
+        """임시: 말을 칸 아래쪽에 바로 그린다. 나중에 B의 MoveAnimation으로 바꾼다."""
+        for i, p in enumerate(self.players):
+            rect = self.board.tile_rect(p.position)
+            x = rect.x + 24 if i == 0 else rect.right - 24    # 1P 왼쪽, 2P 오른쪽
+            draw_pawn(self.screen, p.color, (x, rect.bottom - 10), 36)
+
+    def _update_panels(self):
+        """패널에 차례와 순위를 알려 준다 (패널은 보여주기만 한다)."""
+        for i, info in enumerate(self.infos):
+            me, other = self.players[i], self.players[1 - i]
+            info.is_turn = (i == self.turn_index)
+            info.rank = 1 if me.total_assets() >= other.total_assets() else 2
