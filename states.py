@@ -32,7 +32,7 @@ class RollState(GameState):            # 주사위를 굴릴 차례
 
     def draw(self, surface):
         # 임시 표시: 나중에 B의 굴리기 버튼으로 바꾼다
-        center = (config.SCREEN_WIDTH // 2, config.SCREEN_HEIGHT // 2)
+        center = (config.SCREEN_W // 2, config.SCREEN_H // 2)
         pygame.draw.circle(surface, config.YELLOW, center, 40)
 
 class MovingState(GameState):          # 말이 움직이는 중
@@ -51,7 +51,7 @@ class MovingState(GameState):          # 말이 움직이는 중
 
     def draw(self, surface):
         # 임시 표시: 나중에 말 이동 애니메이션으로 바꾼다
-        center = (config.SCREEN_WIDTH // 2, config.SCREEN_HEIGHT // 2)
+        center = (config.SCREEN_W // 2, config.SCREEN_H // 2)
         pygame.draw.circle(surface, config.P1_RED, center, 40)
 
 class GameOverState(GameState):        # 게임 끝
@@ -69,5 +69,5 @@ class GameOverState(GameState):        # 게임 끝
 
     def draw(self, surface):
         # 임시 표시: 나중에 결과 화면으로 바꾼다
-        center = (config.SCREEN_WIDTH // 2, config.SCREEN_HEIGHT // 2)
+        center = (config.SCREEN_W // 2, config.SCREEN_H // 2)
         pygame.draw.circle(surface, config.WHITE, center, 40)

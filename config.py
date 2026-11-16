@@ -1,8 +1,8 @@
 # config.py : 모든 설정값. 숫자·색·파일 경로는 이 모듈에만 둔다.
 
 # 화면
-SCREEN_WIDTH = 1100
-SCREEN_HEIGHT = 760
+SCREEN_W = 1100
+SCREEN_H = 760
 FPS = 60                  # 1초에 화면을 60번 갱신
 TITLE = "외대 마블"
 

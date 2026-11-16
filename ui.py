@@ -337,7 +337,7 @@ if __name__ == "__main__":
     from dice import DiceSet
 
     pygame.init()
-    screen = pygame.display.set_mode((config.SCREEN_WIDTH, config.SCREEN_HEIGHT))
+    screen = pygame.display.set_mode((config.SCREEN_W, config.SCREEN_H))
     pygame.display.set_caption("B 부품 테스트")
     clock = pygame.time.Clock()
 

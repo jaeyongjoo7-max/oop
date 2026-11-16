@@ -99,10 +99,10 @@ if __name__ == "__main__":
     from roll_strategies import RandomRoll, GaugeRoll
 
     pygame.init()
-    screen = pygame.display.set_mode((config.SCREEN_WIDTH, config.SCREEN_HEIGHT))
+    screen = pygame.display.set_mode((config.SCREEN_W, config.SCREEN_H))
     clock = pygame.time.Clock()
     dice = DiceSet()
-    center = (config.SCREEN_WIDTH // 2, config.SCREEN_HEIGHT // 2)
+    center = (config.SCREEN_W // 2, config.SCREEN_H // 2)
     was_rolling = False
     running = True
 
