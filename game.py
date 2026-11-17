@@ -1,7 +1,7 @@
 # game.py : 게임 루프, 상태 바꾸기, 그리는 순서
 import pygame
 import config
-from states import RollState, GameOverState
+from states import RollState, GameOverState, BuyState
 from board import Board
 from cards import CardDeck
 from player import HumanPlayer, AIPlayer
@@ -61,7 +61,10 @@ class Game:
 
     # A의 칸·카드가 부르는 메서드. 지금은 이름만 있고, 다음 단계에서 채운다.
     def ask_buy(self, tile):                   # 빈 땅 도착: 살지 묻기
-        self.log(f"{tile.name}: 살 수 있는 땅")
+        if tile.can_buy(self.current_player):
+            self.change_state(BuyState(self, tile))
+        else:
+            self.log(f"{tile.name}: 돈이 부족해 못 삼")
 
     def ask_build(self, tile):                 # 내 땅 도착: 지을지 묻기
         self.log(f"{tile.name}: 내 땅")

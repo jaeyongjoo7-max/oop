@@ -33,7 +33,6 @@ BOARD_BORDER = 8
 BOARD_POS = (230, 60)
 
 # 돈 규칙 (팀에서 정할 임시 값)
-TOLL_RATE = 0.5            # 통행료 = 땅값 × 0.5 × 건물 배수
 ACQUIRE_RATE = 2           # 인수 가격 = (땅값 + 건물값) × 2
 ISLAND_REST_TURNS = 1      # 학사경고에서 쉬는 턴
 
