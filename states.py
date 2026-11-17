@@ -91,3 +91,59 @@ class GameOverState(GameState):        # 게임 끝
         # 임시 표시: 나중에 결과 화면으로 바꾼다
         center = (config.SCREEN_W // 2, config.SCREEN_H // 2)
         pygame.draw.circle(surface, config.WHITE, center, 40)
+
+
+class BuyState(GameState):
+    """빈 땅에 도착했을 때: 살지 말지 묻는 팝업 상태"""
+
+    def __init__(self, game, tile):
+        super().__init__(game)
+        self.tile = tile
+        self.player = game.current_player
+
+        # 임시 팝업 자리. B의 팝업 그리기 도구가 오면 이 부분만 바꾼다.
+        cx = config.SCREEN_W // 2
+        cy = config.SCREEN_H // 2
+        self.box = pygame.Rect(cx - 210, cy - 120, 420, 240)
+        self.yes_rect = pygame.Rect(cx - 150, cy + 40, 130, 50)
+        self.no_rect = pygame.Rect(cx + 20, cy + 40, 130, 50)
+
+        # 폰트와 어두운 막은 한 번만 만든다
+        self.font = pygame.font.SysFont(config.FONT_FALLBACK, 26)
+        self.dark = pygame.Surface((config.SCREEN_W, config.SCREEN_H), pygame.SRCALPHA)
+        self.dark.fill((0, 0, 0, 150))
+
+    def update(self, dt):
+        answer = self.player.decide_buy(self.tile)
+        if answer is not WAIT:
+            self.finish(answer)
+
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if self.yes_rect.collidepoint(event.pos):
+                self.finish(True)
+            elif self.no_rect.collidepoint(event.pos):
+                self.finish(False)
+
+    def finish(self, answer):
+        if answer:
+            self.tile.buy(self.player)
+            self.game.log(f"{self.player.name}: {self.tile.name} 구입 (-{self.tile.price:,}원)")
+        else:
+            self.game.log(f"{self.player.name}: {self.tile.name} 안 삼")
+        self.game.end_turn()
+
+    def draw(self, surface):
+        surface.blit(self.dark, (0, 0))
+        pygame.draw.rect(surface, config.WHITE, self.box)
+        pygame.draw.rect(surface, config.INK, self.box, 3)
+        self.draw_text(surface, f"{self.tile.name}을(를) 살까요?", self.box.centerx, self.box.top + 50)
+        self.draw_text(surface, f"땅값 {self.tile.price:,}원", self.box.centerx, self.box.top + 95)
+        for rect, label in ((self.yes_rect, "사기"), (self.no_rect, "안 사기")):
+            pygame.draw.rect(surface, config.YELLOW, rect)
+            pygame.draw.rect(surface, config.INK, rect, 2)
+            self.draw_text(surface, label, rect.centerx, rect.centery)
+
+    def draw_text(self, surface, msg, x, y):
+        text = self.font.render(msg, True, config.NAVY)
+        surface.blit(text, text.get_rect(center=(x, y)))
