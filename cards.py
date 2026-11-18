@@ -4,18 +4,19 @@ cards.py - 황금열쇠 카드 (A 담당)
 구성
   ChanceCard (추상)  : 모든 카드의 공통 틀. title, description, image_file, execute(player, game)
   MoneyCard          : 돈을 내거나 받는 카드 (금액만 다르므로 클래스 1개 + 객체 여러 개)
-  GoToStartCard      : 정문(출발점)으로 이동하는 카드 (행동이 다르므로 상속)
+  GoToStartCard      : 정문으로 이동 (월급 받음)      ┐ 행동이 다르므로 상속
+  GoToIslandCard     : 학사경고로 이동 (월급 없음)    ┘
   CardDeck           : 카드 더미. 섞고, 한 장씩 뽑고, 다 쓰면 다시 섞음
-  CardPopup          : 뽑은 카드 그림을 맵 중앙에 띄우는 화면 요소
+  CardPopup          : 뽑은 카드 그림을 판 가운데에 띄우는 화면 요소
 
 다른 파일과의 약속 (메서드 이름 고정)
-  player.pay(amount), player.receive(amount), player.position, player.name
-  game.log(text), game.board
-  board.size, board.get_tile(i), board.tile_rect(i)
+  player.pay(amount), player.receive(amount), player.name
+  game.log(msg), game.board, game.deck, game.card_popup, game.move_player_to(p, i, salary)
+  board.find_tile(tile_class), board.center_rect
   tile.on_land(player, game)
 
 ChanceTile에서 쓰는 법
-    card = game.card_deck.draw()
+    card = game.deck.draw()
     game.card_popup.show(card)
     card.execute(player, game)
 """
@@ -26,41 +27,8 @@ from abc import ABC, abstractmethod
 
 import pygame
 
-try:
-    import config
-except ImportError:  # config.py 없이 이 파일만 따로 시험할 때
-    config = None
-
-
-# ---------------------------------------------------------------------------
-# 설정값: config.py에 같은 이름이 있으면 그 값을 쓰고, 없으면 아래 기본값을 씀
-# ---------------------------------------------------------------------------
-_DEFAULTS = {
-    "GOLDEN_KEY_IMAGE_DIR": os.path.join("assets", "images", "cards"),
-    "GOLDEN_KEY_AMOUNTS": {
-        "tuition": 200,       # 등록금 납부
-        "f_grade": 100,       # F학점 멘탈치료비
-        "kospi": 150,         # 코스피 급락
-        "hangover": 50,       # 과음의 대가
-        "assignment": 50,     # 과제폭탄
-        "dept_fee": 30,       # 과회비 징수
-        "sports_win": 150,    # 왕산체전 우승 상금
-        "scholarship": 100,   # 장학금
-    },
-    "START_INDEX": 0,               # 정문 칸 번호
-    "CARD_POPUP_MS": 2500,          # 팝업이 자동으로 닫히기까지 시간 (ms)
-    "CARD_POPUP_ANIM_MS": 250,      # 튀어나오는 애니메이션 시간 (ms)
-    "FONT_PATH": None,              # 한글 폰트 파일 경로 (없으면 시스템 폰트)
-}
-
-
-def _cfg(name):
-    return getattr(config, name, _DEFAULTS[name])
-
-
-def _amount(key):
-    amounts = _cfg("GOLDEN_KEY_AMOUNTS")
-    return amounts.get(key, _DEFAULTS["GOLDEN_KEY_AMOUNTS"][key])
+import config
+from tiles import IslandTile, StartTile, get_font
 
 
 # ---------------------------------------------------------------------------
@@ -76,7 +44,7 @@ class ChanceCard(ABC):
 
     @property
     def image_path(self):
-        return os.path.join(_cfg("GOLDEN_KEY_IMAGE_DIR"), self.image_file)
+        return os.path.join(config.CARD_IMAGE_DIR, self.image_file)
 
     @abstractmethod
     def execute(self, player, game):
@@ -105,36 +73,49 @@ class MoneyCard(ChanceCard):
 
 
 class GoToStartCard(ChanceCard):
-    """정문(출발점)으로 바로 이동하는 카드. 도착한 칸의 on_land()도 실행한다."""
+    """정문으로 바로 이동하는 카드. 정문에 닿으므로 월급을 받고, 정문의 on_land()도 실행한다."""
 
     def execute(self, player, game):
-        start = _cfg("START_INDEX")
-        player.position = start
+        start = game.board.find_tile(StartTile)
         game.log(f"[황금열쇠] {player.name}: {self.title} - {self.description}")
-        game.board.get_tile(start).on_land(player, game)
+        game.move_player_to(player, start.index, True)     # True = 정문을 지나므로 월급
+        start.on_land(player, game)
+
+
+class GoToIslandCard(ChanceCard):
+    """학사경고 칸으로 바로 이동하는 카드. 정문을 지나도 월급은 없고, 도착하면 쉬는 턴이 생긴다."""
+
+    def execute(self, player, game):
+        island = game.board.find_tile(IslandTile)
+        game.log(f"[황금열쇠] {player.name}: {self.title} - {self.description}")
+        game.move_player_to(player, island.index, False)   # False = 월급 없이 바로 이동
+        island.on_land(player, game)                       # IslandTile이 rest_turns를 정함
 
 
 def create_golden_keys():
-    """게임에 들어가는 황금열쇠 9장을 만든다."""
+    """게임에 들어가는 황금열쇠 10장을 만든다."""
+    amount = config.CARD_AMOUNTS
     return [
-        MoneyCard("등록금 납부", -_amount("tuition"),
+        MoneyCard("등록금 납부", -amount["tuition"],
                   "등록금 {amount}원을 지불하세요.", "01_tuition_payment.png"),
-        MoneyCard("F학점", -_amount("f_grade"),
+        MoneyCard("F학점", -amount["f_grade"],
                   "멘탈치료비 {amount}원을 지불하세요.", "02_f_grade_mental_care.png"),
-        MoneyCard("코스피 급락", -_amount("kospi"),
+        MoneyCard("코스피 급락", -amount["kospi"],
                   "{amount}원을 지불하세요.", "03_kospi_crash.png"),
-        MoneyCard("과음의 대가", -_amount("hangover"),
+        MoneyCard("과음의 대가", -amount["hangover"],
                   "{amount}원을 지불하세요.", "04_hangover_consequences.png"),
-        MoneyCard("과제폭탄", -_amount("assignment"),
+        MoneyCard("과제폭탄", -amount["assignment"],
                   "밤샘 비용 {amount}원을 지불하세요.", "05_assignment_bomb.png"),
-        MoneyCard("과회비 징수", -_amount("dept_fee"),
+        MoneyCard("과회비 징수", -amount["dept_fee"],
                   "{amount}원을 지불하세요.", "06_department_fee.png"),
         GoToStartCard("셔틀버스",
                       "정문으로 이동합니다.", "07_shuttle_to_main_gate.png"),
-        MoneyCard("왕산체전 우승", _amount("sports_win"),
+        MoneyCard("왕산체전 우승", amount["sports_win"],
                   "상금 {amount}원을 받습니다.", "08_wangsan_sports_champion.png"),
-        MoneyCard("장학금", _amount("scholarship"),
+        MoneyCard("장학금", amount["scholarship"],
                   "장학금 {amount}원을 받습니다.", "09_scholarship.png"),
+        GoToIslandCard("지각 3회",
+                       "학사경고 칸으로 이동합니다.", "10_late_three_times.png"),
     ]
 
 
@@ -209,7 +190,7 @@ class CardPopup:
             return False
         if event.type in (pygame.MOUSEBUTTONDOWN, pygame.KEYDOWN):
             # 뜨자마자 실수로 닫히지 않도록 애니메이션이 끝난 뒤부터 받음
-            if self._elapsed() >= _cfg("CARD_POPUP_ANIM_MS"):
+            if self._elapsed() >= config.CARD_POPUP_ANIM_MS:
                 self.close()
             return True
         return False
@@ -218,11 +199,11 @@ class CardPopup:
         if not self.active:
             return
         elapsed = self._elapsed()
-        if elapsed >= _cfg("CARD_POPUP_MS"):
+        if elapsed >= config.CARD_POPUP_MS:
             self.close()
             return
 
-        area = self._center_area()
+        area = self.board.center_rect
 
         # 1) 판 가운데를 어둡게
         shade = pygame.Surface(area.size, pygame.SRCALPHA)
@@ -230,7 +211,7 @@ class CardPopup:
         surface.blit(shade, area.topleft)
 
         # 2) 카드 그림 (작게 시작해서 커지며 나타남)
-        t = min(1.0, elapsed / max(1, _cfg("CARD_POPUP_ANIM_MS")))
+        t = min(1.0, elapsed / config.CARD_POPUP_ANIM_MS)
         ease = 1 - (1 - t) ** 3
         image = self._fitted_image(area)
         if ease < 1.0:
@@ -260,15 +241,6 @@ class CardPopup:
     def _elapsed(self):
         return pygame.time.get_ticks() - self._start_ms
 
-    def _center_area(self):
-        """칸들로 둘러싸인 판 안쪽 사각형."""
-        rects = [pygame.Rect(self.board.tile_rect(i)) for i in range(self.board.size)]
-        outer = rects[0].unionall(rects[1:])
-        tile_w = min(r.width for r in rects)
-        tile_h = min(r.height for r in rects)
-        inner = outer.inflate(-2 * tile_w, -2 * tile_h)
-        return inner if inner.width > 0 and inner.height > 0 else outer
-
     def _fitted_image(self, area):
         """판 안쪽에 맞게 비율을 유지하며 줄인 그림 (크기별로 한 번만 만든다)."""
         key = (self.card.image_path, area.size)
@@ -295,7 +267,7 @@ class CardPopup:
         surf = pygame.Surface((512, 342), pygame.SRCALPHA)
         pygame.draw.rect(surf, (250, 210, 80), surf.get_rect(), border_radius=24)
         pygame.draw.rect(surf, (150, 100, 20), surf.get_rect(), width=8, border_radius=24)
-        font = _make_font(48)
+        font = get_font(48)
         text = font.render(card.title, True, (60, 40, 10))
         surf.blit(text, text.get_rect(center=surf.get_rect().center))
         return surf
@@ -303,15 +275,6 @@ class CardPopup:
     def _ensure_fonts(self, area):
         if self._font is None:
             size = max(16, int(area.height * 0.055))
-            self._font = _make_font(size)
-            self._small_font = _make_font(max(12, int(size * 0.6)))
+            self._font = get_font(size)
+            self._small_font = get_font(max(12, int(size * 0.6)))
 
-
-def _make_font(size):
-    """한글이 나오는 폰트. config.FONT_PATH가 있으면 그것을 쓴다."""
-    if not pygame.font.get_init():
-        pygame.font.init()
-    path = _cfg("FONT_PATH")
-    if path and os.path.exists(path):
-        return pygame.font.Font(path, size)
-    return pygame.font.SysFont("malgungothic,applegothic,nanumgothic,notosanscjkkr", size, bold=True)

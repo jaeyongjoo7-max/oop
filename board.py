@@ -92,9 +92,13 @@ class Board:
                            if isinstance(self.get_tile(i), PropertyTile)])
         return result
 
-    def tiles_owned_by(self, player):
-        """이 플레이어가 가진 땅 목록 (땅 수·자산 계산에 쓸 수 있다)."""
-        return [t for t in self.tiles if isinstance(t, PropertyTile) and t.owner is player]
+    def find_tile(self, tile_class):
+        """그 종류의 첫 칸 (예: board.find_tile(IslandTile)). 카드가 이동할 칸을 찾을 때 쓴다.
+        칸 번호를 숫자로 적어 두지 않으므로 배치 표가 바뀌어도 카드를 고치지 않아도 된다."""
+        for tile in self.tiles:
+            if isinstance(tile, tile_class):
+                return tile
+        return None
 
     # ----- 그리기 -----
     def draw(self, surface):
