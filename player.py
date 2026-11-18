@@ -14,7 +14,7 @@ class Player(ABC):
         self.position = 0                  # 지금 서 있는 칸 번호 (0 = 정문)
         self._money = config.START_MONEY   # 숨기는 값: 밖에서 직접 못 바꿈
         self._tiles = []                   # 내가 가진 땅 (PropertyTile 객체들)
-
+        self.rest_turns = 0
     # ---------- 돈 (캡슐화) ----------
     @property
     def money(self):            # getter만 있고 setter가 없음 → 읽기만 가능
