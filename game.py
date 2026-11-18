@@ -3,7 +3,7 @@ import pygame
 import config
 from states import RollState, GameOverState, BuyState
 from board import Board
-from cards import CardDeck
+from cards import CardDeck, CardPopup
 from player import HumanPlayer, AIPlayer
 from dice import DiceSet
 from ui import RollGauge, MessageLog, PlayerInfo, draw_pawn
@@ -27,7 +27,8 @@ class Game:
         self.message_log = MessageLog(config.LOG_POS)
         self.infos = [PlayerInfo(self.players[0], config.P1_PANEL_POS),
                       PlayerInfo(self.players[1], config.P2_PANEL_POS)]
-
+        self.card_popup = CardPopup(self.board)                # A: 황금열쇠 그림
+        
         self.turn_index = 0            # 지금 차례인 사람의 번호 (0 또는 1)
         self.turn_count = 0            # 지금까지 턴 수
         self.state = RollState(self)   # 현재 상태 객체 하나
@@ -72,8 +73,14 @@ class Game:
     def ask_acquire(self, tile):               # 상대 땅 도착: 인수할지 묻기
         self.log(f"{tile.name}: 인수할 수 있는 땅")
 
-    def move_player_to(self, p, i, salary):    # 플레이어 p를 i번 칸으로 옮기기
-        self.log("move_player_to 호출됨")
+    def move_player_to(self, p, i, salary):    # 플레이어 p를 i번 칸으로 옮기기 (카드가 부름)
+        """앞으로 가서 i번 칸에 선다. salary가 True면 정문을 지나거나 도착할 때 월급.
+        도착한 칸의 on_land()는 부르는 쪽(카드)이 정한다."""
+        steps = (i - p.position) % self.board.size
+        passed_start = p.move(steps, self.board.size)
+        if salary and passed_start:
+            p.receive(config.SALARY)
+            self.log(f"{p.name}: 정문 통과, 월급 {config.SALARY:,}원")
 
     def run(self):
         while self.running:                        # 무한 루프
@@ -81,6 +88,8 @@ class Game:
             for event in pygame.event.get():       # 이벤트 수집
                 if event.type == pygame.QUIT:
                     self.running = False
+                elif self.card_popup.handle_event(event):
+                    pass                           # 카드 그림이 떠 있으면 클릭은 그림을 닫는 데만 씀
                 else:
                     self.state.handle_event(event) # User → Game → 상태
             self.state.update(dt)
@@ -97,6 +106,7 @@ class Game:
             info.draw(self.screen)
         self.message_log.draw(self.screen)         # 5) 기록
         self.state.draw(self.screen)               # 6) 지금 상태가 자기 화면을 그림
+        self.card_popup.draw(self.screen)          # 7) 황금열쇠 그림 (맨 위)
         pygame.display.flip()                      # 윈도우 업데이트
 
     def _draw_pawns(self):
