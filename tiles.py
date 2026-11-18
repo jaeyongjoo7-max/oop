@@ -10,6 +10,7 @@ from abc import ABC, abstractmethod
 import pygame
 
 import config
+from buildings import make_building
 
 # ---------------------------------------------------------------------------
 # 글자 그리기 도구: 폰트와 글자 그림은 한 번만 만들고 다시 쓴다 (매 프레임 만들면 느려짐)
@@ -25,7 +26,7 @@ def get_font(size, path=None):
         if os.path.exists(path):
             _fonts[key] = pygame.font.Font(path, size)
         else:  # 폰트 파일이 아직 없으면 컴퓨터에 있는 한글 폰트로 대신
-            _fonts[key] = pygame.font.SysFont(config.FALLBACK_FONTS, size, bold=True)
+            _fonts[key] = pygame.font.SysFont(config.FONT_FALLBACK, size, bold=True)
     return _fonts[key]
 
 
@@ -66,7 +67,7 @@ class Tile(ABC):
 
 
 class StartTile(Tile):
-    """정문. 지나갈 때 받는 월급은 말이 움직일 때(move_player_to) 처리한다."""
+    """정문. 지나가거나 도착할 때 받는 월급은 말을 옮기는 쪽(MovingState, move_player_to)이 준다."""
 
     def on_land(self, player, game):
         game.log(f"{player.name}: 정문 도착")
@@ -92,8 +93,8 @@ class ChanceTile(Tile):
 
     def on_land(self, player, game):
         card = game.deck.draw()
-        game.log(f"{player.name}: 황금열쇠 「{card.title}」")
-        card.execute(player, game)
+        game.card_popup.show(card)                     # 카드 그림을 판 가운데에 띄움
+        card.execute(player, game)                     # 카드가 할 일은 카드가 안다 (다형성)
 
     def draw(self, surface, rect):
         pygame.draw.rect(surface, config.CHANCE_BG, rect)
@@ -150,13 +151,19 @@ class PropertyTile(Tile):
             else:
                 game.log(f"{player.name}: 돈이 부족해서 {self.name}을(를) 살 수 없어요")
         elif self.owner is player:
-            game.ask_build(self)                       # 내 땅 → BuildState
+            building = self.next_building()
+            if building is None:
+                game.log(f"{self.name}: 이미 랜드마크예요")
+            elif self.can_build(building):
+                game.ask_build(self)                   # 내 땅 → BuildState
+            else:
+                game.log(f"{player.name}: 돈이 부족해서 {building.name}을(를) 못 지어요")
         else:
             toll = self.toll
             player.pay(toll)
             self.owner.receive(toll)
             game.log(f"{player.name} → {self.owner.name}: 통행료 {toll:,}원")
-            if not player.is_bankrupt() and self.can_be_acquired():
+            if not player.is_bankrupt() and self.can_acquire(player):
                 game.ask_acquire(self)                 # 인수할지 → AcquireState
 
     # ----- 사기 -----
@@ -168,12 +175,23 @@ class PropertyTile(Tile):
             return False
         player.pay(self.price)
         self.owner = player
+        player.add_tile(self)                  # 패널의 땅 수·총자산에 들어감
         self._start_flash("구매!")
         return True
 
     # ----- 짓기 -----
+    def next_building(self):
+        """다음 단계 건물 객체 (빈 땅이면 별장). 이미 랜드마크면 None.
+        BuildState는 tile.upgrade(tile.next_building()), AI는 tile.next_building().cost로 판단."""
+        level = self.building.level + 1 if self.building else 1
+        if level > len(config.BUILDING_STEPS):
+            return None
+        return make_building(level, self.price)
+
     def can_build(self, building):
-        return self.owner is not None and self.owner.money >= building.cost
+        current = self.building.level if self.building else 0
+        return (self.owner is not None and building.level > current
+                and self.owner.money >= building.cost)
 
     def upgrade(self, building):
         if not self.can_build(building):
@@ -198,7 +216,9 @@ class PropertyTile(Tile):
         price = self.acquire_price
         player.pay(price)
         self.owner.receive(price)
+        self.owner.remove_tile(self)           # 원래 주인 목록에서 먼저 빼고
         self.owner = player
+        player.add_tile(self)                  # 새 주인 목록에 넣는다 (건물도 같이 넘어감)
         self._start_flash("인수!")
         return True
 
@@ -217,13 +237,13 @@ class PropertyTile(Tile):
         name_size = 17 if len(self.name) <= 4 else 16
         name_y = rect.y + self.BAND_HEIGHT + (rect.h - self.BAND_HEIGHT) // 2
         draw_text(surface, self.name, name_size, config.NAVY, (rect.centerx, name_y))
-        if self.building:
-            draw_text(surface, self.building.name, 12, config.NAVY, (rect.centerx, rect.bottom - 13))
-
         pygame.draw.rect(surface, config.INK, rect, 2)
         if self.owner:
             pygame.draw.rect(surface, self.owner.color, rect.inflate(-4, -4), 4)   # 주인 색 테두리
             self._draw_flag(surface, rect)
+        if self.building:
+            self.building.draw(surface, rect)          # 건물마다 자기 모양대로 (랜드마크는 금색 테두리)
+            draw_text(surface, self.building.name, 12, config.NAVY, (rect.x + 52, rect.bottom - 13))
         self._draw_flash(surface, rect)
 
     def _draw_flag(self, surface, rect):
