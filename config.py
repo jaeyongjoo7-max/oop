@@ -116,12 +116,12 @@ LOG_OLD_TEXT = (220, 230, 245)
 TINT_RATE = 0.88                   # 플레이어 색을 얼마나 밝게 할지 (패널 칸 배경)
 
 # UI 위치·크기 (시안, 1100×760 기준)
-MARGIN = 20
+MARGIN = 16
 PANEL_WIDTH = 196
 PANEL_HEIGHT = 160
 PANEL_HEAD = 56
 P1_PANEL_POS = (MARGIN, SCREEN_H - MARGIN - PANEL_HEIGHT)     # 왼쪽 아래
-P2_PANEL_POS = (SCREEN_W - MARGIN - PANEL_WIDTH, MARGIN)       # 오른쪽 위
+P2_PANEL_POS = (SCREEN_W - MARGIN - PANEL_WIDTH, MARGIN + 16)       # 오른쪽 위
 LOG_POS = (SCREEN_W - MARGIN, SCREEN_H - MARGIN)          # 기록 오른쪽 아래 끝
 LOG_WIDTH = 196
 LOG_HEIGHT = 32
