@@ -31,6 +31,8 @@ class RollState(GameState):            # 주사위를 굴릴 차례
 
     def update(self, dt):
         self.game.gauge.update(dt)
+        if self.game.card_popup.active:  # 황금열쇠 그림을 보는 동안은 AI도 굴리지 않음
+            return
         choice = self.game.current_player.choose_roll()  # AI면 0/1/2, 사람이면 WAIT
         if choice is not WAIT:
             self.start_roll(GaugeRoll(choice))
@@ -44,30 +46,47 @@ class RollState(GameState):            # 주사위를 굴릴 차례
         self.game.gauge.draw(surface)
 
 
-class MovingState(GameState):          # 주사위가 구르고 말이 움직이는 중
+class MovingState(GameState):          # 주사위가 구르고 말이 한 칸씩 움직이는 중
+    def __init__(self, game):
+        super().__init__(game)
+        self.steps_left = None         # None = 아직 주사위가 구르는 중
+        self.timer = 0                 # 마지막으로 한 칸 옮긴 뒤 지난 시간
+
     def handle_event(self, event):
         pass                           # 움직이는 동안은 입력을 받지 않는다
 
     def update(self, dt):
-        dice = self.game.dice
-        dice.update(dt)
-        if dice.is_rolling:            # 아직 구르는 중이면 기다린다
-            return
-
         p = self.game.current_player
         board = self.game.board
-        double = " 더블!" if dice.is_double else ""
-        self.game.log(f"{p.name}: {dice.total} 나옴{double}")
 
-        passed_start = p.move(dice.total, board.size)   # 정문을 지났으면 True
+        # 1단계: 주사위가 멈출 때까지 기다린다
+        if self.steps_left is None:
+            dice = self.game.dice
+            dice.update(dt)
+            if dice.is_rolling:        # 아직 구르는 중이면 기다린다
+                return
+            double = " 더블!" if dice.is_double else ""
+            self.game.log(f"{p.name}: {dice.total} 나옴{double}")
+            self.steps_left = dice.total
+            return
+
+        # 2단계: STEP_TIME이 지날 때마다 한 칸씩
+        self.timer += dt
+        if self.timer < config.STEP_TIME:
+            return
+        self.timer = 0
+
+        passed_start = p.move(1, board.size)   # 한 칸만, 정문을 지났으면 True
+        self.steps_left -= 1
         if passed_start:
             p.receive(config.SALARY)
             self.game.log(f"{p.name}: 정문 통과, 월급 {config.SALARY:,}원")
 
-        board.get_tile(p.position).on_land(p, self.game)   # 칸 종류마다 다른 일 (다형성)
-
-        if self.game.state is self:    # 칸이 다른 상태(BuyState 등)로 바꾸지 않았으면
-            self.game.end_turn()       # 턴 끝 (다음 상태는 Game이 정함)
+        # 3단계: 다 왔으면 칸 도착 처리 (원래 코드와 같음)
+        if self.steps_left == 0:
+            board.get_tile(p.position).on_land(p, self.game)   # 칸 종류마다 다른 일 (다형성)
+            if self.game.state is self:    # 칸이 다른 상태(BuyState 등)로 바꾸지 않았으면
+                self.game.end_turn()
 
     def draw(self, surface):
         self.game.dice.draw(surface, config.DICE_CENTER)
