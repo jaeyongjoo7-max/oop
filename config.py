@@ -22,7 +22,7 @@ WHITE = (255, 255, 255)
 START_MONEY = 1500        # 시작 돈
 SALARY = 200              # 정문을 지날 때 받는 월급
 TOLL_RATE = 0.5           # 통행료 = 땅값 × 이 비율
-MAX_TURNS = 30            # 턴 다 씀 판정 기준
+MAX_TURNS = 40           # 턴 다 씀 판정 기준 (1턴 = 한 사람의 차례, 각자 20번)
 
 # 연출 시간 (ms)
 MOVE_TIME = 1000          # 임시: 이동 상태가 유지되는 시간
@@ -78,9 +78,6 @@ CARD_POPUP_ANIM_MS = 250        # 카드 그림이 튀어나오는 시간 (ms)
 # 구매 표시
 OWNER_TINT_ALPHA = 45      # 주인 색으로 칸을 옅게 칠하는 정도 (0~255)
 FLASH_MS = 900             # 사거나 지었을 때 반짝이는 시간 (ms)
-
-# 폰트 파일이 없을 때 대신 쓸 한글 폰트 (윈도우, 맥, 리눅스 순)
-FALLBACK_FONTS = "malgungothic,applegothic,applesdgothicneo,nanumgothic,notosanscjkkr"
 
 # 판 배치 표: 0번 = 정문, 진행 방향(정문에서 왼쪽) 순서
 BOARD_LAYOUT = [

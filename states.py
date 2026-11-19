@@ -96,9 +96,21 @@ class MovingState(GameState):          # 주사위가 구르고 말이 한 칸�
 class GameOverState(GameState):        # 게임 끝
     def __init__(self, game, winner, reason):
         super().__init__(game)
-        self.winner = winner           # 이긴 사람 (아직 없으면 None)
-        self.reason = reason           # 끝난 이유
-        self.game.log(f"게임 끝: {reason}")
+        self.winner = winner           # 이긴 사람 (무승부면 None)
+        self.reason = reason           # 끝난 이유: "파산" 또는 "턴 다 씀"
+        if winner is None:
+            self.result = "무승부"
+        else:
+            self.result = f"{winner.name} 승리!"
+        self.game.log(f"게임 끝({reason}): {self.result}")
+
+        # 임시 결과 상자 (BuyState와 같은 방법). B의 팝업 그리기 도구가 오면 이 부분만 바꾼다.
+        cx = config.SCREEN_W // 2
+        cy = config.SCREEN_H // 2
+        self.box = pygame.Rect(cx - 210, cy - 100, 420, 200)
+        self.font = pygame.font.SysFont(config.FONT_FALLBACK, 30)
+        self.dark = pygame.Surface((config.SCREEN_W, config.SCREEN_H), pygame.SRCALPHA)
+        self.dark.fill((0, 0, 0, 150))
 
     def handle_event(self, event):
         pass                           # 나중에: 다시 하기 버튼
@@ -107,9 +119,13 @@ class GameOverState(GameState):        # 게임 끝
         pass
 
     def draw(self, surface):
-        # 임시 표시: 나중에 결과 화면으로 바꾼다
-        center = (config.SCREEN_W // 2, config.SCREEN_H // 2)
-        pygame.draw.circle(surface, config.WHITE, center, 40)
+        surface.blit(self.dark, (0, 0))
+        pygame.draw.rect(surface, config.WHITE, self.box)
+        pygame.draw.rect(surface, config.INK, self.box, 3)
+        for msg, y in ((f"게임 끝 ({self.reason})", self.box.top + 65),
+                       (self.result, self.box.top + 135)):
+            text = self.font.render(msg, True, config.NAVY)
+            surface.blit(text, text.get_rect(center=(self.box.centerx, y)))
 
 
 class BuyState(GameState):
