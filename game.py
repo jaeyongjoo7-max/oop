@@ -51,14 +51,40 @@ class Game:
     def next_player(self):
         self.turn_index = 1 - self.turn_index      # 0이면 1로, 1이면 0으로
 
-    def end_turn(self):                # 턴 끝내기
-        if self.turn_count >= config.MAX_TURNS:
-            self.change_state(GameOverState(self, None, "턴 다 씀"))
+    def end_turn(self):                # 턴 끝내기: 순서는 ① 파산 → ② 더블 → ③ 다음 사람
+        p = self.current_player
+        if p.is_bankrupt():                              # ① 돈이 0원보다 적으면 끝
+            self.change_state(GameOverState(self, self.opponent, "파산"))
             return
-        self.turn_count += 1
-        self.next_player()
-        self.log(f"{self.current_player.name} 차례")
-        self.change_state(RollState(self))
+        if self.dice.is_double and p.rest_turns == 0:    # ② 더블 (학사경고에 갔으면 넘김)
+            self.log(f"{p.name}: 더블! 한 번 더")
+            self.change_state(RollState(self))
+            return
+        self.pass_turn()                                 # ③ 다음 사람에게
+
+    def pass_turn(self):               # 다음 사람에게 차례 넘기기 (1턴 = 한 사람의 차례)
+        while True:                    # 두 사람이 모두 쉬는 중일 수도 있어서 while
+            self.turn_count += 1       # 방금 끝난 차례를 1턴으로 센다 (쉰 차례도 셈)
+            if self.turn_count >= config.MAX_TURNS:
+                self.change_state(GameOverState(self, self.winner_by_assets(), "턴 다 씀"))
+                return
+            self.next_player()
+            p = self.current_player
+            if p.rest_turns > 0:       # 학사경고: 이번 차례는 쉬고 다음 사람으로
+                p.rest_turns -= 1
+                self.log(f"{p.name}: 학사경고로 이번 차례 쉼")
+                continue
+            self.log(f"{p.name} 차례")
+            self.change_state(RollState(self))
+            return
+
+    def winner_by_assets(self):        # 턴 다 씀일 때 승자: 총자산 → 현금 → 무승부(None)
+        a, b = self.players
+        if a.total_assets() != b.total_assets():
+            return a if a.total_assets() > b.total_assets() else b
+        if a.money != b.money:
+            return a if a.money > b.money else b
+        return None
 
     # A의 칸·카드가 부르는 메서드. 지금은 이름만 있고, 다음 단계에서 채운다.
     def ask_buy(self, tile):                   # 빈 땅 도착: 살지 묻기
