@@ -87,6 +87,9 @@ class Button:
         self.rect.center = center
         self.text = text
         self.color = color
+        self.text_color = config.NAVY            # 글자 색 (자식 클래스가 바꿀 수 있게 변수로)
+        self.hover_color = config.BUTTON_HOVER   # 마우스를 올렸을 때 색
+        self.shine_color = config.BUTTON_SHINE   # 위쪽 반사 줄 색
         self.state = "normal"       # normal / hover / active
 
     def handle_event(self, event):
@@ -115,15 +118,15 @@ class Button:
             rect = self.rect.move(0, shadow - 2)
         color = self.color
         if self.state == "hover":
-            color = config.BUTTON_HOVER
+            color = self.hover_color
 
         pygame.draw.rect(surface, config.INK, self.rect.move(0, shadow), border_radius=radius)
         pygame.draw.rect(surface, color, rect, border_radius=radius)
         shine = pygame.Rect(rect.x + 18, rect.y + 6, rect.width - 36, 12)    # 위쪽 반사 줄
-        pygame.draw.rect(surface, config.BUTTON_SHINE, shine, border_radius=6)
+        pygame.draw.rect(surface, self.shine_color, shine, border_radius=6)
         pygame.draw.rect(surface, config.INK, rect, width=3, border_radius=radius)
         font = get_font(config.FONT_BUTTON, rect.height * 2 // 5)
-        draw_text(surface, self.text, font, config.NAVY, rect.center)
+        draw_text(surface, self.text, font, self.text_color, rect.center)
 
 
 # ================================================================
