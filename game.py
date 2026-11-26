@@ -1,7 +1,7 @@
 # game.py : 게임 루프, 상태 바꾸기, 그리는 순서
 import pygame
 import config
-from states import RollState, BuyState, AcquireState, GameOverState
+from states import TitleState, RollState, BuyState, AcquireState, GameOverState
 from turns import TurnManager
 from win_conditions import BankruptcyWin, TurnLimitWin
 from board import Board
@@ -25,16 +25,18 @@ class Game:
         self.win_conditions = [BankruptcyWin(), TurnLimitWin()]   # 새 조건은 여기에 객체 하나만 추가
 
         self.mode = "ai"                                       # "ai" = 사람 vs AI, "person" = 사람 vs 사람
-        self.start(self.make_players(self.mode))
+        self.names = ["플레이어 1", "플레이어 2"]                  # 게임 설정 화면에서 바꾼다
+        self.players = []                                      # 아직 판이 없음 → 시작 화면
+        self.change_state(TitleState(self))                    # 처음엔 타이틀부터
 
     # ---------- 한 판 시작 ----------
-    def make_players(self, mode):
+    def make_players(self, mode, names):
         """사람/AI는 여기 한 곳에서만 정한다. 그 뒤로는 아무도 종류를 묻지 않는다 (다형성).
         사람 vs 사람은 새 클래스 없이 HumanPlayer 객체를 하나 더 만들면 된다 (재사용)."""
-        p1 = HumanPlayer("플레이어 1", config.P1_RED)
+        p1 = HumanPlayer(names[0], config.P1_RED)
         if mode == "person":
-            return [p1, HumanPlayer("플레이어 2", config.P2_BLUE)]
-        return [p1, AIPlayer("플레이어 2", config.P2_BLUE)]
+            return [p1, HumanPlayer(names[1], config.P2_BLUE)]
+        return [p1, AIPlayer(names[1], config.P2_BLUE)]
 
     def start(self, players):
         """새 판을 시작한다: 판·카드·패널·턴을 새로 만든다 (다시 하기, 나중엔 상대 고르기에서도 부름)."""
@@ -50,7 +52,7 @@ class Game:
         self.log(f"{self.current_player.name} 차례")
 
     def restart(self):
-        self.start(self.make_players(self.mode))
+        self.start(self.make_players(self.mode, self.names))
 
     # ---------- 다른 객체가 부르는 메서드 ----------
     def change_state(self, new_state):
@@ -124,7 +126,7 @@ class Game:
     def handle_event(self, event):
         if event.type == pygame.QUIT:
             self.running = False
-        elif self.card_popup.handle_event(event):
+        elif self.players and self.card_popup.handle_event(event):
             pass                                   # 카드 그림이 떠 있으면 클릭은 그림을 닫는 데만 씀
         else:
             self.state.handle_event(event)         # User → Game → 상태
@@ -132,17 +134,19 @@ class Game:
     def draw(self):
         # 그리는 순서는 Game이 정한다: 뒤에 그린 것이 위에 보인다
         self.screen.fill(config.NAVY)              # 1) 배경
-        self.board.draw(self.screen)               # 2) 판
-        self._draw_pawns()                         # 3) 말
-        self._update_panels()
-        for info in self.infos:                    # 4) 1P·2P 패널
-            info.draw(self.screen)
-        self.message_log.draw(self.screen)         # 5) 기록
-        self.dice.draw(self.screen, config.DICE_CENTER)   # 6) 주사위·게이지 (모든 상태가 같이 씀)
-        self.gauge.draw(self.screen)
-        self._draw_turn_count()
-        self.state.draw(self.screen)               # 7) 지금 상태가 자기 화면을 그림 (팝업 등)
-        self.card_popup.draw(self.screen)          # 8) 황금열쇠 그림 (맨 위)
+        if self.players:                           # 판이 있을 때만 (시작 화면에서는 안 그림)
+            self.board.draw(self.screen)           # 2) 판
+            self._draw_pawns()                     # 3) 말
+            self._update_panels()
+            for info in self.infos:                # 4) 1P·2P 패널
+                info.draw(self.screen)
+            self.message_log.draw(self.screen)     # 5) 기록
+            self.dice.draw(self.screen, config.DICE_CENTER)   # 6) 주사위·게이지 (모든 상태가 같이 씀)
+            self.gauge.draw(self.screen)
+            self._draw_turn_count()
+        self.state.draw(self.screen)               # 7) 지금 상태가 자기 화면을 그림 (팝업, 시작 화면)
+        if self.players:
+            self.card_popup.draw(self.screen)      # 8) 황금열쇠 그림 (맨 위)
         pygame.display.flip()                      # 윈도우 업데이트
 
     def _draw_pawns(self):

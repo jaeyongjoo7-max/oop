@@ -171,3 +171,17 @@ TURN_TEXT_POS = (550, 548)         # 판 가운데 아래 "턴 3 / 40"
 POPUP_SIZE = (420, 240)
 POPUP_BUTTON_SIZE = (130, 50)
 POPUP_SHADE = (0, 0, 0, 150)       # 팝업 뒤 화면을 어둡게 (R, G, B, 투명도)
+
+# 시작 화면 (C, 11/26 2안: 노란 보드게임 상자 느낌)
+NAVY_HOVER = (37, 66, 112)          # 남색 버튼에 마우스를 올렸을 때
+NAVY_SHINE = (48, 80, 130)          # 남색 버튼 위쪽 반사 줄
+LOGO_SHADOW = (224, 162, 28)        # 노란 배경 위 로고 그림자
+LOCKED_BG = (238, 241, 245)         # 잠긴 이름 칸 (AI)
+LOCKED_LINE = (138, 150, 173)
+HINT_TEXT = (128, 138, 160)         # 이름 칸이 비었을 때 보이는 회색 글자
+PLAY_BTN_POS = (270, 575)
+PLAY_BTN_SIZE = (280, 76)
+MINI_BOARD_TOPLEFT = (590, 171)     # 타이틀 오른쪽 작은 판 (418 x 418)
+TOGGLE_SIZE = (290, 64)
+NAME_BOX_SIZE = (460, 52)
+NAME_MAX_LEN = 6                    # 이름은 6글자까지 (패널 폭 196에 맞춤)
