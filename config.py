@@ -22,7 +22,7 @@ WHITE = (255, 255, 255)
 START_MONEY = 1500        # 시작 돈
 SALARY = 200              # 정문을 지날 때 받는 월급
 TOLL_RATE = 0.5           # 통행료 = 땅값 × 이 비율
-MAX_TURNS = 40           # 턴 다 씀 판정 기준 (1턴 = 한 사람의 차례, 각자 20번)
+MAX_TURNS = 40            # 턴 다 씀 판정 기준 (1턴 = 한 사람의 차례, 각자 20번)
 
 # 연출 시간 (ms)
 MOVE_TIME = 1000          # 임시: 이동 상태가 유지되는 시간
@@ -33,12 +33,11 @@ TILE_SIZE = 104
 BOARD_BORDER = 8
 BOARD_POS = (230, 60)
 
-# 돈 규칙 (팀에서 정할 임시 값)
-ACQUIRE_RATE = 2           # 인수 가격 = (땅값 + 건물값) × 2
+# 돈 규칙 (11/26 추천안)
+ACQUIRE_RATE = 2           # 인수 가격 = 땅값 × 2
 ISLAND_REST_TURNS = 1      # 학사경고에서 쉬는 턴
 
 # 칸 색
-WHITE = (255, 255, 255)
 TILE_BG = (255, 253, 247)
 START_BG = (221, 242, 229)
 START_TEXT = (31, 122, 77)
@@ -48,14 +47,14 @@ CHANCE_BG = (255, 233, 168)
 CHANCE_TEXT = (138, 90, 0)
 KEY_GOLD = (242, 183, 5)
 
-# ----- A 추가 (11/18): 건물·황금열쇠 -----
-# 건물 단계 (임시값, 팀 합의 후 확정. 지침서 4쪽 예시 기준)
-# (이름, 짓는 값 = 땅값 × 이 배수, 통행료 배수). 맨 마지막 단계가 랜드마크(인수 불가)
+# ----- A 추가 (11/18): 통행료 단계·황금열쇠 -----
+# 통행료 단계 (11/22: 건물 짓기 대신, 자기 땅에 다시 오면 공짜로 한 단계씩 오른다)
+# (이름, 통행료 배수). 맨 마지막 단계가 랜드마크(인수 불가)
 BUILDING_STEPS = [
-    ("별장", 0.5, 2),
-    ("빌딩", 1.0, 4),
-    ("호텔", 2.5, 7),
-    ("랜드마크", 3.0, 10),
+    ("별장", 2),
+    ("빌딩", 4),
+    ("호텔", 7),
+    ("랜드마크", 10),
 ]
 LANDMARK_GOLD = (242, 183, 5)   # 랜드마크 칸 금색 테두리
 
@@ -73,6 +72,13 @@ CARD_AMOUNTS = {                # 카드 금액 (원)
 }
 CARD_POPUP_MS = 2500            # 카드 그림이 저절로 닫히기까지 (ms)
 CARD_POPUP_ANIM_MS = 250        # 카드 그림이 튀어나오는 시간 (ms)
+CARD_SHADE = (0, 0, 0, 140)     # 카드가 뜰 때 판 가운데를 어둡게
+CARD_TEXT_BG = (40, 30, 10)     # 카드 설명 상자
+CARD_TEXT_BORDER = (240, 196, 60)
+CARD_HINT_TEXT = (220, 220, 220)
+CARD_PLACEHOLDER_BG = (250, 210, 80)       # 그림 파일이 없을 때 대신 그리는 카드
+CARD_PLACEHOLDER_BORDER = (150, 100, 20)
+CARD_PLACEHOLDER_TEXT = (60, 40, 10)
 # ----- A 추가 끝 -----
 
 # 구매 표시
@@ -146,7 +152,7 @@ PANEL_WIDTH = 196
 PANEL_HEIGHT = 160
 PANEL_HEAD = 56
 P1_PANEL_POS = (MARGIN, SCREEN_H - MARGIN - PANEL_HEIGHT)     # 왼쪽 아래
-P2_PANEL_POS = (SCREEN_W - MARGIN - PANEL_WIDTH, MARGIN + 16)       # 오른쪽 위
+P2_PANEL_POS = (SCREEN_W - MARGIN - PANEL_WIDTH, MARGIN)       # 오른쪽 위
 LOG_POS = (SCREEN_W - MARGIN, SCREEN_H - MARGIN)          # 기록 오른쪽 아래 끝
 LOG_WIDTH = 196
 LOG_HEIGHT = 32
@@ -159,3 +165,9 @@ GAUGE_HEIGHT = 32
 ROLL_BUTTON_CENTER = (550, 480)
 ROLL_BUTTON_SIZE = (270, 62)
 BUTTON_SHADOW = 7
+TURN_TEXT_POS = (550, 548)         # 판 가운데 아래 "턴 3 / 40"
+
+# 팝업 (땅 사기·인수·게임 끝)
+POPUP_SIZE = (420, 240)
+POPUP_BUTTON_SIZE = (130, 50)
+POPUP_SHADE = (0, 0, 0, 150)       # 팝업 뒤 화면을 어둡게 (R, G, B, 투명도)

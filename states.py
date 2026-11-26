@@ -4,6 +4,7 @@ import pygame
 import config
 from player import WAIT
 from roll_strategies import GaugeRoll
+from ui import Button, draw_shade, draw_text, get_font
 
 
 class GameState(ABC):                  # 추상 클래스: 모든 상태의 공통 틀
@@ -19,7 +20,7 @@ class GameState(ABC):                  # 추상 클래스: 모든 상태의 공�
         pass
 
     @abstractmethod
-    def draw(self, surface):           # 그리기
+    def draw(self, surface):           # 그리기 (주사위·게이지는 Game이 늘 그리므로, 상태는 자기 것만)
         pass
 
 
@@ -42,8 +43,7 @@ class RollState(GameState):            # 주사위를 굴릴 차례
         self.game.change_state(MovingState(self.game))
 
     def draw(self, surface):
-        self.game.dice.draw(surface, config.DICE_CENTER)
-        self.game.gauge.draw(surface)
+        pass                             # 주사위·게이지는 Game.draw가 그림
 
 
 class MovingState(GameState):          # 주사위가 구르고 말이 한 칸씩 움직이는 중
@@ -57,7 +57,6 @@ class MovingState(GameState):          # 주사위가 구르고 말이 한 칸�
 
     def update(self, dt):
         p = self.game.current_player
-        board = self.game.board
 
         # 1단계: 주사위가 멈출 때까지 기다린다
         if self.steps_left is None:
@@ -75,110 +74,147 @@ class MovingState(GameState):          # 주사위가 구르고 말이 한 칸�
         if self.timer < config.STEP_TIME:
             return
         self.timer = 0
-
-        passed_start = p.move(1, board.size)   # 한 칸만, 정문을 지났으면 True
+        self.game.move_player(p, 1)    # 한 칸 + 정문을 지나면 월급 (카드 이동과 같은 메서드)
         self.steps_left -= 1
-        if passed_start:
-            p.receive(config.SALARY)
-            self.game.log(f"{p.name}: 정문 통과, 월급 {config.SALARY:,}원")
 
-        # 3단계: 다 왔으면 칸 도착 처리 (원래 코드와 같음)
+        # 3단계: 다 왔으면 칸 도착 처리
         if self.steps_left == 0:
-            board.get_tile(p.position).on_land(p, self.game)   # 칸 종류마다 다른 일 (다형성)
+            self.game.board.get_tile(p.position).on_land(p, self.game)   # 칸 종류마다 다른 일 (다형성)
             if self.game.state is self:    # 칸이 다른 상태(BuyState 등)로 바꾸지 않았으면
                 self.game.end_turn()
 
     def draw(self, surface):
-        self.game.dice.draw(surface, config.DICE_CENTER)
-        self.game.gauge.draw(surface)
+        pass                             # 주사위·게이지는 Game.draw가 그림
+
+
+# ---------------------------------------------------------------------------
+# 팝업 단계: 화면을 어둡게 하고 가운데 상자에서 "예/아니오"를 묻는다
+# ---------------------------------------------------------------------------
+class PopupState(GameState):
+    """'예/아니오'를 묻는 팝업 단계의 공통 부모 (11/26).
+    흐름(사람은 버튼, AI는 바로 답함, 끝나면 턴 넘기기)과 그리기는 여기 한 곳에만 있고,
+    자식은 다른 세 가지(lines, decide, on_answer)만 채운다 (5강 재사용 + 확장)."""
+
+    def __init__(self, game, tile, yes_text, no_text):
+        super().__init__(game)
+        self.tile = tile
+        self.player = game.current_player
+        cx, cy = config.SCREEN_W // 2, config.SCREEN_H // 2
+        self.box = pygame.Rect((0, 0), config.POPUP_SIZE)
+        self.box.center = (cx, cy)
+        size = config.POPUP_BUTTON_SIZE
+        self.yes_button = Button((cx - 85, cy + 65), size, yes_text)   # B의 Button 재사용 (9강)
+        self.no_button = Button((cx + 85, cy + 65), size, no_text)
+
+    # ----- 자식마다 다른 부분 (6강 추상 메서드) -----
+    @abstractmethod
+    def lines(self):
+        """팝업에 쓸 글자 두 줄"""
+
+    @abstractmethod
+    def decide(self):
+        """player.decide_buy(tile)처럼 플레이어에게 묻는다. True / False / WAIT"""
+
+    @abstractmethod
+    def on_answer(self, answer):
+        """고른 뒤 할 일"""
+
+    # ----- 모든 팝업이 그대로 물려받는 부분 -----
+    def update(self, dt):
+        answer = self.decide()           # AI는 바로 True/False, 사람은 WAIT (다형성)
+        if answer is not WAIT:
+            self.finish(answer)
+
+    def handle_event(self, event):
+        if self.yes_button.handle_event(event):
+            self.finish(True)
+        elif self.no_button.handle_event(event):
+            self.finish(False)
+
+    def finish(self, answer):
+        self.on_answer(answer)
+        self.game.end_turn()             # 턴 넘기기는 Game 한 곳에서만
+
+    def draw(self, surface):
+        draw_shade(surface, surface.get_rect(), config.POPUP_SHADE)
+        pygame.draw.rect(surface, config.WHITE, self.box, border_radius=18)
+        pygame.draw.rect(surface, config.INK, self.box, 4, border_radius=18)
+        font = get_font(config.FONT_BODY, 24)
+        for i, line in enumerate(self.lines()):
+            draw_text(surface, line, font, config.NAVY,
+                      (self.box.centerx, self.box.top + 50 + 45 * i))
+        self.yes_button.draw(surface)
+        self.no_button.draw(surface)
+
+
+class BuyState(PopupState):
+    """빈 땅에 도착했을 때: 살지 묻기"""
+
+    def __init__(self, game, tile):
+        super().__init__(game, tile, "사기", "안 사기")
+
+    def lines(self):
+        return [f"{self.tile.name}을(를) 살까요?", f"땅값 {self.tile.price:,}원"]
+
+    def decide(self):
+        return self.player.decide_buy(self.tile)
+
+    def on_answer(self, answer):
+        if answer:
+            self.tile.buy(self.player)
+            self.game.log(f"{self.player.name}: {self.tile.name} 구입 (-{self.tile.price:,}원)")
+        else:
+            self.game.log(f"{self.player.name}: {self.tile.name} 안 삼")
+
+
+class AcquireState(PopupState):
+    """상대 땅에서 통행료를 낸 뒤: 인수할지 묻기"""
+
+    def __init__(self, game, tile):
+        super().__init__(game, tile, "인수", "안 함")
+
+    def lines(self):
+        return [f"{self.tile.name}을(를) 인수할까요?", f"인수 가격 {self.tile.acquire_price:,}원"]
+
+    def decide(self):
+        return self.player.decide_acquire(self.tile)
+
+    def on_answer(self, answer):
+        if answer:
+            price, old_owner = self.tile.acquire_price, self.tile.owner
+            self.tile.acquire(self.player)
+            self.game.log(f"{self.player.name}: {self.tile.name} 인수 ({old_owner.name}에게 {price:,}원)")
+        else:
+            self.game.log(f"{self.player.name}: {self.tile.name} 인수 안 함")
 
 
 class GameOverState(GameState):        # 게임 끝
     def __init__(self, game, winner, reason):
         super().__init__(game)
         self.winner = winner           # 이긴 사람 (무승부면 None)
-        self.reason = reason           # 끝난 이유: "파산" 또는 "턴 다 씀"
-        if winner is None:
-            self.result = "무승부"
-        else:
-            self.result = f"{winner.name} 승리!"
+        self.reason = reason           # 끝난 이유
+        self.result = f"{winner.name} 승리!" if winner else "무승부"
         self.game.log(f"게임 끝({reason}): {self.result}")
 
-        # 임시 결과 상자 (BuyState와 같은 방법). B의 팝업 그리기 도구가 오면 이 부분만 바꾼다.
-        cx = config.SCREEN_W // 2
-        cy = config.SCREEN_H // 2
-        self.box = pygame.Rect(cx - 210, cy - 100, 420, 200)
-        self.font = pygame.font.SysFont(config.FONT_FALLBACK, 30)
-        self.dark = pygame.Surface((config.SCREEN_W, config.SCREEN_H), pygame.SRCALPHA)
-        self.dark.fill((0, 0, 0, 150))
+        cx, cy = config.SCREEN_W // 2, config.SCREEN_H // 2
+        self.box = pygame.Rect((0, 0), config.POPUP_SIZE)
+        self.box.center = (cx, cy)
+        # 나중에 TitleState가 생기면 [메인화면] 버튼으로 바꾼다
+        self.again_button = Button((cx, cy + 65), (200, 56), "다시 하기")
 
     def handle_event(self, event):
-        pass                           # 나중에: 다시 하기 버튼
+        if self.again_button.handle_event(event):
+            self.game.restart()
 
     def update(self, dt):
         pass
 
     def draw(self, surface):
-        surface.blit(self.dark, (0, 0))
-        pygame.draw.rect(surface, config.WHITE, self.box)
-        pygame.draw.rect(surface, config.INK, self.box, 3)
-        for msg, y in ((f"게임 끝 ({self.reason})", self.box.top + 65),
-                       (self.result, self.box.top + 135)):
-            text = self.font.render(msg, True, config.NAVY)
-            surface.blit(text, text.get_rect(center=(self.box.centerx, y)))
-
-
-class BuyState(GameState):
-    """빈 땅에 도착했을 때: 살지 말지 묻는 팝업 상태"""
-
-    def __init__(self, game, tile):
-        super().__init__(game)
-        self.tile = tile
-        self.player = game.current_player
-
-        # 임시 팝업 자리. B의 팝업 그리기 도구가 오면 이 부분만 바꾼다.
-        cx = config.SCREEN_W // 2
-        cy = config.SCREEN_H // 2
-        self.box = pygame.Rect(cx - 210, cy - 120, 420, 240)
-        self.yes_rect = pygame.Rect(cx - 150, cy + 40, 130, 50)
-        self.no_rect = pygame.Rect(cx + 20, cy + 40, 130, 50)
-
-        # 폰트와 어두운 막은 한 번만 만든다
-        self.font = pygame.font.SysFont(config.FONT_FALLBACK, 26)
-        self.dark = pygame.Surface((config.SCREEN_W, config.SCREEN_H), pygame.SRCALPHA)
-        self.dark.fill((0, 0, 0, 150))
-
-    def update(self, dt):
-        answer = self.player.decide_buy(self.tile)
-        if answer is not WAIT:
-            self.finish(answer)
-
-    def handle_event(self, event):
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if self.yes_rect.collidepoint(event.pos):
-                self.finish(True)
-            elif self.no_rect.collidepoint(event.pos):
-                self.finish(False)
-
-    def finish(self, answer):
-        if answer:
-            self.tile.buy(self.player)
-            self.game.log(f"{self.player.name}: {self.tile.name} 구입 (-{self.tile.price:,}원)")
-        else:
-            self.game.log(f"{self.player.name}: {self.tile.name} 안 삼")
-        self.game.end_turn()
-
-    def draw(self, surface):
-        surface.blit(self.dark, (0, 0))
-        pygame.draw.rect(surface, config.WHITE, self.box)
-        pygame.draw.rect(surface, config.INK, self.box, 3)
-        self.draw_text(surface, f"{self.tile.name}을(를) 살까요?", self.box.centerx, self.box.top + 50)
-        self.draw_text(surface, f"땅값 {self.tile.price:,}원", self.box.centerx, self.box.top + 95)
-        for rect, label in ((self.yes_rect, "사기"), (self.no_rect, "안 사기")):
-            pygame.draw.rect(surface, config.YELLOW, rect)
-            pygame.draw.rect(surface, config.INK, rect, 2)
-            self.draw_text(surface, label, rect.centerx, rect.centery)
-
-    def draw_text(self, surface, msg, x, y):
-        text = self.font.render(msg, True, config.NAVY)
-        surface.blit(text, text.get_rect(center=(x, y)))
+        draw_shade(surface, surface.get_rect(), config.POPUP_SHADE)
+        pygame.draw.rect(surface, config.WHITE, self.box, border_radius=18)
+        pygame.draw.rect(surface, config.INK, self.box, 4, border_radius=18)
+        draw_text(surface, f"게임 끝 ({self.reason})", get_font(config.FONT_BODY, 20), config.SUB_TEXT,
+                  (self.box.centerx, self.box.top + 42))
+        draw_text(surface, self.result, get_font(config.FONT_LOGO, 40), config.NAVY,
+                  (self.box.centerx, self.box.top + 95))
+        self.again_button.draw(surface)

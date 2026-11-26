@@ -3,9 +3,9 @@ cards.py - 황금열쇠 카드 (A 담당)
 
 구성
   ChanceCard (추상)  : 모든 카드의 공통 틀. title, description, image_file, execute(player, game)
-  MoneyCard          : 돈을 내거나 받는 카드 (금액만 다르므로 클래스 1개 + 객체 여러 개)
-  GoToStartCard      : 정문으로 이동 (월급 받음)      ┐ 행동이 다르므로 상속
-  GoToIslandCard     : 학사경고로 이동 (월급 없음)    ┘
+  MoneyCard          : 돈을 내거나 받는 카드 (금액만 다르므로 클래스 1개 + 객체 8개)
+  MoveCard           : 정해진 칸으로 이동하는 카드 (어느 칸·월급 여부만 다르므로 클래스 1개 + 객체 2개)
+                       11/26: GoToStartCard·GoToIslandCard 두 클래스를 하나로 합침 (재사용)
   CardDeck           : 카드 더미. 섞고, 한 장씩 뽑고, 다 쓰면 다시 섞음
   CardPopup          : 뽑은 카드 그림을 판 가운데에 띄우는 화면 요소
 
@@ -28,7 +28,8 @@ from abc import ABC, abstractmethod
 import pygame
 
 import config
-from tiles import IslandTile, StartTile, get_font
+from tiles import IslandTile, StartTile
+from ui import draw_shade, get_font
 
 
 # ---------------------------------------------------------------------------
@@ -50,6 +51,10 @@ class ChanceCard(ABC):
     def execute(self, player, game):
         """카드 효과를 player에게 적용한다."""
 
+    def log_effect(self, player, game):
+        """모든 카드가 같은 모양으로 기록을 남긴다. 자식은 물려받아 부르기만 한다 (5강 재사용)."""
+        game.log(f"[황금열쇠] {player.name}: {self.title} - {self.description}")
+
     def __repr__(self):
         return f"<{type(self).__name__} {self.title}>"
 
@@ -69,27 +74,24 @@ class MoneyCard(ChanceCard):
             player.pay(-self.amount)
         else:
             player.receive(self.amount)
-        game.log(f"[황금열쇠] {player.name}: {self.title} - {self.description}")
+        self.log_effect(player, game)
 
 
-class GoToStartCard(ChanceCard):
-    """정문으로 바로 이동하는 카드. 정문에 닿으므로 월급을 받고, 정문의 on_land()도 실행한다."""
+class MoveCard(ChanceCard):
+    """정해진 칸으로 바로 이동하는 카드.
+    셔틀버스(정문, 월급 받음)와 지각 3회(학사경고, 월급 없음)는 어느 칸인지·월급 여부만 다르다.
+    → 데이터만 다르므로 클래스 하나 + 객체 둘 (지침서 "데이터만 다르면 객체")"""
 
-    def execute(self, player, game):
-        start = game.board.find_tile(StartTile)
-        game.log(f"[황금열쇠] {player.name}: {self.title} - {self.description}")
-        game.move_player_to(player, start.index, True)     # True = 정문을 지나므로 월급
-        start.on_land(player, game)
-
-
-class GoToIslandCard(ChanceCard):
-    """학사경고 칸으로 바로 이동하는 카드. 정문을 지나도 월급은 없고, 도착하면 쉬는 턴이 생긴다."""
+    def __init__(self, title, description, image_file, target_class, salary):
+        super().__init__(title, description, image_file)   # 제목·설명·그림은 부모 것 그대로
+        self.target_class = target_class   # 갈 칸의 종류 (StartTile, IslandTile …)
+        self.salary = salary               # True면 정문을 지날 때 월급
 
     def execute(self, player, game):
-        island = game.board.find_tile(IslandTile)
-        game.log(f"[황금열쇠] {player.name}: {self.title} - {self.description}")
-        game.move_player_to(player, island.index, False)   # False = 월급 없이 바로 이동
-        island.on_land(player, game)                       # IslandTile이 rest_turns를 정함
+        target = game.board.find_tile(self.target_class)   # 칸 번호를 숫자로 적지 않음
+        self.log_effect(player, game)
+        game.move_player_to(player, target.index, self.salary)
+        target.on_land(player, game)                       # 도착한 칸이 할 일은 칸이 안다 (다형성)
 
 
 def create_golden_keys():
@@ -108,14 +110,14 @@ def create_golden_keys():
                   "밤샘 비용 {amount}원을 지불하세요.", "05_assignment_bomb.png"),
         MoneyCard("과회비 징수", -amount["dept_fee"],
                   "{amount}원을 지불하세요.", "06_department_fee.png"),
-        GoToStartCard("셔틀버스",
-                      "정문으로 이동합니다.", "07_shuttle_to_main_gate.png"),
+        MoveCard("셔틀버스",
+                 "정문으로 이동합니다.", "07_shuttle_to_main_gate.png", StartTile, True),
         MoneyCard("왕산체전 우승", amount["sports_win"],
                   "상금 {amount}원을 받습니다.", "08_wangsan_sports_champion.png"),
         MoneyCard("장학금", amount["scholarship"],
                   "장학금 {amount}원을 받습니다.", "09_scholarship.png"),
-        GoToIslandCard("지각 3회",
-                       "학사경고 칸으로 이동합니다.", "10_late_three_times.png"),
+        MoveCard("지각 3회",
+                 "학사경고 칸으로 이동합니다.", "10_late_three_times.png", IslandTile, False),
     ]
 
 
@@ -205,10 +207,8 @@ class CardPopup:
 
         area = self.board.center_rect
 
-        # 1) 판 가운데를 어둡게
-        shade = pygame.Surface(area.size, pygame.SRCALPHA)
-        pygame.draw.rect(shade, (0, 0, 0, 140), shade.get_rect(), border_radius=16)
-        surface.blit(shade, area.topleft)
+        # 1) 판 가운데를 어둡게 (ui의 공통 도구 재사용)
+        draw_shade(surface, area, config.CARD_SHADE, radius=16)
 
         # 2) 카드 그림 (작게 시작해서 커지며 나타남)
         t = min(1.0, elapsed / config.CARD_POPUP_ANIM_MS)
@@ -228,13 +228,13 @@ class CardPopup:
 
         # 3) 그림 아래에 설명 (금액은 그림에 없어서 글자로 보여 줌)
         self._ensure_fonts(area)
-        text = self._font.render(self.card.description, True, (255, 255, 255))
+        text = self._font.render(self.card.description, True, config.WHITE)
         box = text.get_rect(midtop=(area.centerx, img_rect.bottom + 12)).inflate(28, 14)
-        pygame.draw.rect(surface, (40, 30, 10), box, border_radius=10)
-        pygame.draw.rect(surface, (240, 196, 60), box, width=3, border_radius=10)
+        pygame.draw.rect(surface, config.CARD_TEXT_BG, box, border_radius=10)
+        pygame.draw.rect(surface, config.CARD_TEXT_BORDER, box, width=3, border_radius=10)
         surface.blit(text, text.get_rect(center=box.center))
 
-        hint = self._small_font.render("클릭하면 닫힙니다", True, (220, 220, 220))
+        hint = self._small_font.render("클릭하면 닫힙니다", True, config.CARD_HINT_TEXT)
         surface.blit(hint, hint.get_rect(midtop=(area.centerx, box.bottom + 6)))
 
     # ----- 내부 도우미 -----
@@ -265,16 +265,16 @@ class CardPopup:
     def _placeholder(self, card):
         """그림 파일이 없을 때 대신 보여 줄 카드."""
         surf = pygame.Surface((512, 342), pygame.SRCALPHA)
-        pygame.draw.rect(surf, (250, 210, 80), surf.get_rect(), border_radius=24)
-        pygame.draw.rect(surf, (150, 100, 20), surf.get_rect(), width=8, border_radius=24)
-        font = get_font(48)
-        text = font.render(card.title, True, (60, 40, 10))
+        pygame.draw.rect(surf, config.CARD_PLACEHOLDER_BG, surf.get_rect(), border_radius=24)
+        pygame.draw.rect(surf, config.CARD_PLACEHOLDER_BORDER, surf.get_rect(), width=8, border_radius=24)
+        font = get_font(config.FONT_BODY, 48)
+        text = font.render(card.title, True, config.CARD_PLACEHOLDER_TEXT)
         surf.blit(text, text.get_rect(center=surf.get_rect().center))
         return surf
 
     def _ensure_fonts(self, area):
         if self._font is None:
             size = max(16, int(area.height * 0.055))
-            self._font = get_font(size)
-            self._small_font = get_font(max(12, int(size * 0.6)))
+            self._font = get_font(config.FONT_BODY, size)
+            self._small_font = get_font(config.FONT_BODY, max(12, int(size * 0.6)))
 

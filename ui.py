@@ -4,10 +4,13 @@ import config
 from roll_strategies import RandomRoll, GaugeRoll
 
 # ================================================================
-# 공통 도구: 글자 그리기, 말 모양 그리기
+# 공통 도구: 글자 그리기, 반투명 막, 말 모양 그리기
+#   판(A)·화면(B)·상태(C)가 모두 이 모듈의 도구를 가져다 쓴다 (2강 모듈, 재사용).
+#   예전에는 tiles.py와 states.py에도 글자 도구가 따로 있었다 → 하나로 합침 (11/26)
 # ================================================================
 
-_fonts = {}     # (폰트 파일, 크기) → 폰트 객체. 크기마다 한 번만 만든다 (지침서 6쪽)
+_fonts = {}         # (폰트 파일, 크기) → 폰트 객체. 크기마다 한 번만 만든다 (지침서 6쪽)
+_text_images = {}   # (글자, 폰트, 색) → 글자 그림. 같은 글자는 한 번만 만든다 (A의 tiles.py에서 옮김)
 
 
 def get_font(path, size):
@@ -22,13 +25,26 @@ def get_font(path, size):
 
 def draw_text(surface, text, font, color, pos, align="center"):
     """align이 "center"면 pos가 글자 가운데, "left"면 글자 왼쪽 가운데."""
-    image = font.render(text, True, color)
+    key = (text, font, color)
+    if key not in _text_images:
+        _text_images[key] = font.render(text, True, color)
+    image = _text_images[key]
     rect = image.get_rect()
+    pos = (int(pos[0]), int(pos[1]))     # 칸 위치 계산에서 소수가 와도 괜찮게
     if align == "center":
         rect.center = pos
     else:
         rect.midleft = pos
     surface.blit(image, rect)
+
+
+def draw_shade(surface, rect, rgba, radius=0):
+    """rect 위에 반투명 색을 덮는다. rgba = (R, G, B, 투명도 0~255).
+    팝업 뒤 어두운 막, 칸 주인 색, 반짝임, 카드 뒤 막이 모두 이걸 쓴다.
+    (강의 범위 밖: pygame.SRCALPHA — 투명도가 있는 그림판을 만들어 뒤가 비쳐 보이게 한다)"""
+    shade = pygame.Surface(rect.size, pygame.SRCALPHA)
+    pygame.draw.rect(shade, rgba, shade.get_rect(), border_radius=radius)
+    surface.blit(shade, rect.topleft)
 
 
 def fit_text(text, font, max_width):

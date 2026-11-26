@@ -2,7 +2,8 @@
 import pygame
 
 import config
-from tiles import ChanceTile, IslandTile, PropertyTile, StartTile, draw_text
+from tiles import ChanceTile, IslandTile, PropertyTile, StartTile
+from ui import draw_text, get_font
 
 
 class Board:
@@ -55,6 +56,11 @@ class Board:
     def get_tile(self, index):
         return self.tiles[index % self.size]
 
+    def steps_between(self, start, end):
+        """start번 칸에서 end번 칸까지 앞으로 몇 칸인지.
+        판을 한 바퀴 도는 계산(% size)은 판이 안다 (카드가 말을 옮길 때 Game이 씀)."""
+        return (end - start) % self.size
+
     def grid_pos(self, index):
         """칸 번호 → (행, 열). 0번(정문)이 오른쪽 아래, 진행 방향은 왼쪽."""
         n = self.side_len
@@ -74,6 +80,13 @@ class Board:
                            self.y + self.border + row * self.tile_size,
                            self.tile_size, self.tile_size)
 
+    def pawn_pos(self, index, slot):
+        """index번 칸에 선 말의 발 위치. slot 0(1P)은 왼쪽, 1(2P)은 오른쪽.
+        말을 그리는 곳(Game, board_demo)이 모두 이걸 쓴다."""
+        rect = self.tile_rect(index)
+        x = rect.x + 24 if slot == 0 else rect.right - 24
+        return x, rect.bottom - 10
+
     def tile_at(self, pos):
         """화면 좌표 → 그 자리의 칸 (없으면 None). 칸을 클릭할 때 쓸 수 있다."""
         for tile in self.tiles:
@@ -82,7 +95,7 @@ class Board:
         return None
 
     def lines(self):
-        """네 변의 땅 목록 (MonopolyWin이 한 줄 독점을 볼 때 쓴다).
+        """네 변의 땅 목록 (한 줄 독점 승리를 만들 때 쓸 수 있다. MonopolyWin은 11/26에 빼기로 함).
         각 변 = 그 변의 가운데 칸들 + 변이 끝나는 모서리."""
         n = self.side_len
         result = []
@@ -113,6 +126,8 @@ class Board:
     def _draw_logo(self, surface):
         center = self.center_rect
         logo_y = center.y + 70
-        draw_text(surface, "외대 마블", 56, config.INK, (center.centerx + 4, logo_y + 4), config.FONT_LOGO)
-        draw_text(surface, "외대 마블", 56, config.YELLOW, (center.centerx, logo_y), config.FONT_LOGO)
-        draw_text(surface, "HUFS MARBLE", 15, config.WHITE, (center.centerx, logo_y + 44))
+        logo_font = get_font(config.FONT_LOGO, 56)
+        draw_text(surface, "외대 마블", logo_font, config.INK, (center.centerx + 4, logo_y + 4))
+        draw_text(surface, "외대 마블", logo_font, config.YELLOW, (center.centerx, logo_y))
+        draw_text(surface, "HUFS MARBLE", get_font(config.FONT_BODY, 15), config.WHITE,
+                  (center.centerx, logo_y + 44))
