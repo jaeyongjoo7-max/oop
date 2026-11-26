@@ -274,10 +274,11 @@ class PlayerInfo:
         self.is_turn = False    # C가 차례마다 정해 줌 → "내 차례!" 표시
         self.rank = 1           # C가 정해 줌 → 1위면 왕관
 
-    def _count_buildings(self):
+    def _count_raised(self):
+        """통행료가 한 번이라도 오른 땅 수."""
         count = 0
         for tile in self.player.tiles:
-            if tile.building:
+            if tile.toll_level.level > 0:
                 count += 1
         return count
 
@@ -318,15 +319,15 @@ class PlayerInfo:
         draw_text(surface, f"{p.money:,}원", get_font(config.FONT_BODY, 24), config.INK,
                   (r.x + 42, coin[1]), align="left")
 
-        # 땅 수, 건물 수
+        # 땅 수, 통행료 오른 땅 수
         font = get_font(config.FONT_BODY, 13)
         box_w = (r.width - 30) // 2
         land = pygame.Rect(r.x + 12, head.bottom + 46, box_w, 26)
-        building = pygame.Rect(land.right + 6, land.y, box_w, 26)
+        raised = pygame.Rect(land.right + 6, land.y, box_w, 26)
         pygame.draw.rect(surface, tint, land, border_radius=10)
-        pygame.draw.rect(surface, tint, building, border_radius=10)
+        pygame.draw.rect(surface, tint, raised, border_radius=10)
         draw_text(surface, f"땅 {len(p.tiles)}", font, config.INK, land.center)
-        draw_text(surface, f"건물 {self._count_buildings()}", font, config.INK, building.center)
+        draw_text(surface, f"오른 땅 {self._count_raised()}", font, config.INK, raised.center)
 
         # 총자산 · 순위
         draw_text(surface, f"총자산 {p.total_assets():,}원 · {self.rank}위",

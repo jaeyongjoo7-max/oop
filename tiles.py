@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 import pygame
 
 import config
-from buildings import make_building
+from toll_levels import make_toll_level
 from ui import draw_shade, draw_text, get_font
 
 
@@ -107,15 +107,14 @@ class PropertyTile(Tile):
         self.price = price
         self.band_color = band_color
         self.owner = None          # 주인 Player 객체
-        self.building = None       # 통행료 단계 (별장 → 빌딩 → 호텔 → 랜드마크)
+        self.toll_level = make_toll_level(0)    # 통행료 단계 (0단계 = 기본)
         self._flash_text = None    # 사거나 인수하거나 단계가 오를 때 잠깐 띄울 글자
         self._flash_start = 0
 
     # ----- 돈 계산 (계산은 여기 한 곳에서만) -----
     @property
     def toll(self):
-        rate = self.building.toll_rate if self.building else 1
-        return int(self.price * config.TOLL_RATE * rate)
+        return int(self.price * config.TOLL_RATE * self.toll_level.toll_rate)
 
     @property
     def acquire_price(self):
@@ -151,27 +150,30 @@ class PropertyTile(Tile):
         return True
 
     # ----- 통행료 상승 (11/22: 자기 땅에 다시 오면 공짜로 한 단계) -----
-    def next_building(self):
-        """다음 단계 객체 (아직 없으면 별장). 이미 랜드마크면 None."""
-        level = self.building.level + 1 if self.building else 1
-        if level > len(config.BUILDING_STEPS):
+    def next_toll_level(self):
+        """다음 단계 객체. 이미 최대면 None."""
+        level = self.toll_level.level + 1
+        if level >= len(config.TOLL_STEPS):
             return None
-        return make_building(level)
+        return make_toll_level(level)
 
     def raise_toll(self, game):
-        """통행료 단계를 한 단계 올린다. 단계 데이터(Building)는 그대로 재사용한다."""
-        building = self.next_building()
-        if building is None:
-            game.log(f"{self.name}: 이미 랜드마크 (통행료 {self.toll:,}원)")
+        """통행료를 한 단계 올린다. 단계 데이터(TollLevel)는 그대로 재사용한다."""
+        next_level = self.next_toll_level()
+        if next_level is None:
+            game.log(f"{self.name}: 통행료 최대 ({self.toll:,}원)")
             return
-        self.building = building
-        self._start_flash(f"{building.name}!")
-        game.log(f"{self.name}: {building.name}(으)로! 통행료 {self.toll:,}원")
+        self.toll_level = next_level
+        self._start_flash(f"{self.toll:,}원!")
+        if self.toll_level.can_be_acquired():
+            game.log(f"{self.name}: 통행료 {self.toll:,}원으로!")
+        else:
+            game.log(f"{self.name}: 통행료 최대 {self.toll:,}원! 이제 인수할 수 없어요")
 
     # ----- 인수 -----
     def can_be_acquired(self):
-        """랜드마크면 인수 불가. 판단은 단계 객체에게 맡긴다 (다형성)."""
-        return self.owner is not None and (self.building is None or self.building.can_be_acquired())
+        """최대 단계면 인수 불가. 판단은 단계 객체에게 맡긴다 (다형성)."""
+        return self.owner is not None and self.toll_level.can_be_acquired()
 
     def can_acquire(self, player):
         return (self.can_be_acquired() and self.owner is not player
@@ -205,10 +207,7 @@ class PropertyTile(Tile):
         if self.owner:
             pygame.draw.rect(surface, self.owner.color, rect.inflate(-4, -4), 4)   # 주인 색 테두리
             self._draw_flag(surface, rect)
-        if self.building:
-            self.building.draw(surface, rect)          # 단계마다 자기 모양대로 (랜드마크는 금색 테두리)
-            draw_text(surface, self.building.name, get_font(config.FONT_BODY, 12), config.NAVY,
-                      (rect.x + 52, rect.bottom - 13))
+            self.toll_level.draw(surface, rect, self.toll)   # 단계마다 자기 모양대로 (최대는 금색 테두리)
         self._draw_flash(surface, rect)
 
     def _draw_flag(self, surface, rect):
