@@ -8,7 +8,7 @@ from board import Board
 from cards import CardDeck, CardPopup
 from player import HumanPlayer, AIPlayer
 from dice import DiceSet
-from ui import RollGauge, MessageLog, PlayerInfo, draw_pawn, draw_text, get_font
+from ui import RollGauge, MessageLog, PlayerInfo, draw_background, draw_pawn, draw_text, get_font
 
 
 class Game:
@@ -44,15 +44,22 @@ class Game:
         self.board = Board()                                   # A
         self.deck = CardDeck()                                 # A
         self.card_popup = CardPopup(self.board)                # A: 황금열쇠 그림
-        self.message_log = MessageLog(config.LOG_POS)          # B
-        self.infos = [PlayerInfo(players[0], config.P1_PANEL_POS),
-                      PlayerInfo(players[1], config.P2_PANEL_POS)]
+        self.message_log = MessageLog(config.LOG_RECT)         # B
+        self.infos = [PlayerInfo(players[0], config.P1_PANEL_POS, "1P"),
+                      PlayerInfo(players[1], config.P2_PANEL_POS, "2P")]
+        self.dice.reset()                                      # 다시 쓰는 부품은 처음 모습으로
+        self.gauge.reset()
         self.turns = TurnManager(players, config.MAX_TURNS)    # C: 턴 관리는 이 객체 하나에게 맡김
         self.change_state(RollState(self))
         self.log(f"{self.current_player.name} 차례")
 
     def restart(self):
         self.start(self.make_players(self.mode, self.names))
+
+    def go_title(self):
+        """판을 치우고 메인으로. players를 비우면 draw가 판·패널·카드 그림을 더 그리지 않는다."""
+        self.players = []
+        self.change_state(TitleState(self))
 
     # ---------- 다른 객체가 부르는 메서드 ----------
     def change_state(self, new_state):
@@ -133,34 +140,37 @@ class Game:
 
     def draw(self):
         # 그리는 순서는 Game이 정한다: 뒤에 그린 것이 위에 보인다
-        self.screen.fill(config.NAVY)              # 1) 배경
-        if self.players:                           # 판이 있을 때만 (시작 화면에서는 안 그림)
+        if self.players:                           # 판이 있을 때만 (메인·게임 준비는 상태가 직접 그림)
+            draw_background(self.screen, config.PLAY_BG_SHADE)   # 1) 배경
             self.board.draw(self.screen)           # 2) 판
             self._draw_pawns()                     # 3) 말
             self._update_panels()
-            for info in self.infos:                # 4) 1P·2P 패널
+            for info in self.infos:                # 4) 1P·2P 카드
                 info.draw(self.screen)
             self.message_log.draw(self.screen)     # 5) 기록
             self.dice.draw(self.screen, config.DICE_CENTER)   # 6) 주사위·게이지 (모든 상태가 같이 씀)
             self.gauge.draw(self.screen)
             self._draw_turn_count()
-        self.state.draw(self.screen)               # 7) 지금 상태가 자기 화면을 그림 (팝업, 시작 화면)
+        self.state.draw(self.screen)               # 7) 지금 상태가 자기 화면을 그림 (팝업, 메인 화면)
         if self.players:
             self.card_popup.draw(self.screen)      # 8) 황금열쇠 그림 (맨 위)
         pygame.display.flip()                      # 윈도우 업데이트
 
     def _draw_pawns(self):
-        """임시: 말을 칸 아래쪽에 바로 그린다. 나중에 B의 MoveAnimation으로 바꾼다."""
+        """말을 칸 아래쪽에 그린다 (1P 왼쪽, 2P 오른쪽)."""
         for i, p in enumerate(self.players):
-            draw_pawn(self.screen, p.color, self.board.pawn_pos(p.position, i), 36)
+            draw_pawn(self.screen, p.color, self.board.pawn_pos(p.position, i), 24)
 
     def _draw_turn_count(self):
         now = min(self.turns.count + 1, self.turns.max_turns)
+        pill = pygame.Rect(config.TURN_PILL_RECT)
+        pygame.draw.rect(self.screen, config.TURN_BG, pill, border_radius=pill.height // 2)
+        pygame.draw.rect(self.screen, config.TURN_BORDER, pill, width=1, border_radius=pill.height // 2)
         draw_text(self.screen, f"턴 {now} / {self.turns.max_turns}",
-                  get_font(config.FONT_BODY, 15), config.WHITE, config.TURN_TEXT_POS)
+                  get_font(config.FONT_BODY, 14), config.WHITE, pill.center)
 
     def _update_panels(self):
-        """패널에 차례와 순위를 알려 준다 (패널은 보여주기만 한다)."""
+        """카드에 차례와 순위를 알려 준다 (카드는 보여주기만 한다). 총자산이 같으면 둘 다 1위."""
         for i, info in enumerate(self.infos):
             me, other = self.players[i], self.players[1 - i]
             info.is_turn = (me is self.current_player)

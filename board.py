@@ -3,7 +3,7 @@ import pygame
 
 import config
 from tiles import ChanceTile, IslandTile, PropertyTile, StartTile
-from ui import draw_text, get_font
+from ui import draw_shade, load_image
 
 
 class Board:
@@ -24,6 +24,15 @@ class Board:
         self.x, self.y = config.BOARD_POS
         self.tile_size = config.TILE_SIZE
         self.border = config.BOARD_BORDER
+        self._logo = self._load_logo()        # 판 가운데 작은 로고 (한 번만 줄여 둔다)
+
+    def _load_logo(self):
+        """메인과 같은 로고 그림을 폭만 줄인다. 파일이 없으면 None (로고 없이 그림)"""
+        image = load_image(config.LOGO_IMAGE)
+        if image is None:
+            return None
+        w, h = image.get_size()
+        return pygame.transform.smoothscale(image, (config.BOARD_LOGO_WIDTH, h * config.BOARD_LOGO_WIDTH // w))
 
     def _make_tile(self, index, entry):
         kind, name, *extra = entry          # 예: ("land", "기숙사", 100, BAND_100)
@@ -84,8 +93,8 @@ class Board:
         """index번 칸에 선 말의 발 위치. slot 0(1P)은 왼쪽, 1(2P)은 오른쪽.
         말을 그리는 곳(Game, board_demo)이 모두 이걸 쓴다."""
         rect = self.tile_rect(index)
-        x = rect.x + 24 if slot == 0 else rect.right - 24
-        return x, rect.bottom - 10
+        x = rect.centerx - 18 + slot * 24       # 두 말이 가운데에 나란히 (오른쪽 끝은 주인 깃발 자리)
+        return x, rect.bottom - 8
 
     def tile_at(self, pos):
         """화면 좌표 → 그 자리의 칸 (없으면 None). 칸을 클릭할 때 쓸 수 있다."""
@@ -116,18 +125,16 @@ class Board:
     # ----- 그리기 -----
     def draw(self, surface):
         outer = pygame.Rect(self.x, self.y, self.pixel_size, self.pixel_size)
-        pygame.draw.rect(surface, config.YELLOW, outer, border_radius=14)
-        pygame.draw.rect(surface, config.INK, outer.inflate(-self.border * 2, -self.border * 2))
-        pygame.draw.rect(surface, config.NAVY, self.center_rect)
+        pygame.draw.rect(surface, config.INK, outer.move(0, 8).inflate(8, 8), border_radius=20)   # 그림자
+        pygame.draw.rect(surface, config.GOLD, outer.inflate(8, 8), border_radius=20)             # 골드 테
+        pygame.draw.rect(surface, config.INK, outer.inflate(8, 8), width=3, border_radius=20)
+        pygame.draw.rect(surface, config.INK, outer.inflate(-self.border, -self.border), border_radius=10)
+        draw_shade(surface, self.center_rect.inflate(-config.TILE_GAP, -config.TILE_GAP),
+                   config.BOARD_CENTER_SHADE, radius=8)   # 가운데는 뒤 풍경이 살짝 비치게
         self._draw_logo(surface)
         for tile in self.tiles:
             tile.draw(surface, self.tile_rect(tile.index))   # 칸마다 자기 모양대로 (다형성)
 
     def _draw_logo(self, surface):
-        center = self.center_rect
-        logo_y = center.y + 70
-        logo_font = get_font(config.FONT_LOGO, 56)
-        draw_text(surface, "외대 마블", logo_font, config.INK, (center.centerx + 4, logo_y + 4))
-        draw_text(surface, "외대 마블", logo_font, config.YELLOW, (center.centerx, logo_y))
-        draw_text(surface, "HUFS MARBLE", get_font(config.FONT_BODY, 15), config.WHITE,
-                  (center.centerx, logo_y + 44))
+        if self._logo:
+            surface.blit(self._logo, self._logo.get_rect(center=config.BOARD_LOGO_CENTER))

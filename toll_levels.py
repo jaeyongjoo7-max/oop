@@ -22,9 +22,9 @@ class TollLevel:
         return True
 
     def draw(self, surface, rect, toll):
-        """칸 아래쪽에 지금 통행료 금액. (오른쪽 아래는 주인 깃발 자리라서 비워 둔다)"""
-        draw_text(surface, f"통행료 {toll:,}", get_font(config.FONT_BODY, 12), config.NAVY,
-                  (rect.x + 8, rect.bottom - 13), align="left")
+        """이름 아래에 지금 통행료 금액. (칸 아래쪽은 말, 오른쪽 아래는 주인 깃발 자리)"""
+        draw_text(surface, f"통행료 {toll:,}", get_font(config.FONT_BODY, 11), config.SUB_TEXT,
+                  (rect.centerx, rect.y + 66))
 
     def __repr__(self):
         return f"<{type(self).__name__} {self.level}단계 x{self.toll_rate}>"
@@ -37,7 +37,7 @@ class MaxTollLevel(TollLevel):
         return False
 
     def draw(self, surface, rect, toll):
-        pygame.draw.rect(surface, config.MAX_TOLL_GOLD, rect.inflate(-10, -10), 3)
+        pygame.draw.rect(surface, config.MAX_TOLL_GOLD, rect.inflate(-8, -8), 3, border_radius=4)
         super().draw(surface, rect, toll)    # 금액 글자는 부모 것을 그대로 (5강 재사용)
 
 

@@ -228,7 +228,7 @@ class CardPopup:
 
         # 3) 그림 아래에 설명 (금액은 그림에 없어서 글자로 보여 줌)
         self._ensure_fonts(area)
-        text = self._font.render(self.card.description, True, config.WHITE)
+        text = self._font.render(self.card.description, True, config.CARD_TEXT_COLOR)
         box = text.get_rect(midtop=(area.centerx, img_rect.bottom + 12)).inflate(28, 14)
         pygame.draw.rect(surface, config.CARD_TEXT_BG, box, border_radius=10)
         pygame.draw.rect(surface, config.CARD_TEXT_BORDER, box, width=3, border_radius=10)
