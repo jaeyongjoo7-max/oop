@@ -23,7 +23,7 @@ class Die:
         radius = config.DIE_RADIUS
         shadow = rect.move(0, config.DIE_SHADOW)                       # 아래 그림자
         pygame.draw.rect(surface, config.INK, shadow, border_radius=radius)
-        pygame.draw.rect(surface, config.WHITE, rect, border_radius=radius)
+        pygame.draw.rect(surface, config.DIE_COLOR, rect, border_radius=radius)
         pygame.draw.rect(surface, config.INK, rect, width=3, border_radius=radius)
 
         pad = config.DIE_PADDING
@@ -43,6 +43,12 @@ class DiceSet:
         self._result = (1, 1)      # 굴리기 시작할 때 미리 정해 둔 결과
         self._elapsed = 0          # 굴리기 시작한 뒤 지난 시간 (ms)
         self._flip_time = 0        # 눈을 마지막으로 바꾼 뒤 지난 시간 (ms)
+
+    def reset(self):
+        """새 판: 두 주사위를 1로 되돌린다 (시안의 첫 턴 모습)"""
+        self._rolling = False
+        for die in self.dice:
+            die.value = 1
 
     def roll(self, strategy):
         """strategy가 RandomRoll이든 GaugeRoll이든 똑같이 부른다 (다형성)."""

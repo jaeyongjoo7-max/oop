@@ -85,7 +85,7 @@ def main():
         screen.fill(config.NAVY)
         board.draw(screen)
         for i, p in enumerate(players):
-            draw_pawn(screen, p.color, board.pawn_pos(p.position, i), 36)
+            draw_pawn(screen, p.color, board.pawn_pos(p.position, i), 22)
         center = board.center_rect
         draw_text(screen, f"{me.name} 차례 · {me.money:,}원 · 땅 {len(me.tiles)}",
                   get_font(config.FONT_BODY, 20), me.color, (center.centerx, center.centery + 40))

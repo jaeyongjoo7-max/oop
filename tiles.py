@@ -28,20 +28,24 @@ class Tile(ABC):
     def on_land(self, player, game):
         """말이 이 칸에 멈췄을 때 일어나는 일."""
 
-    def draw(self, surface, rect):
-        pygame.draw.rect(surface, config.TILE_BG, rect)
-        draw_text(surface, self.name, get_font(config.FONT_BODY, 17), config.NAVY, rect.center)
-        pygame.draw.rect(surface, config.INK, rect, 2)
+    @staticmethod
+    def inner(rect):
+        """칸 사이에 틈을 두고 그릴 안쪽 사각형 (판 바탕 INK가 틈으로 보인다)"""
+        return rect.inflate(-config.TILE_GAP, -config.TILE_GAP)
 
-    def _draw_special(self, surface, rect, bg, fg, title, sub, title_size):
-        """정문·학사경고처럼 테두리 상자가 있는 특수 칸 모양 (자식들이 같이 쓴다)."""
-        pygame.draw.rect(surface, bg, rect)
-        pygame.draw.rect(surface, fg, rect.inflate(-10, -10), 3, border_radius=6)
+    def draw(self, surface, rect):
+        r = self.inner(rect)
+        pygame.draw.rect(surface, config.TILE_BG, r, border_radius=config.TILE_RADIUS)
+        draw_text(surface, self.name, get_font(config.FONT_BODY, 17), config.INK, r.center)
+
+    def _draw_special(self, surface, rect, bg, fg, title, sub, title_size, sub_color=None):
+        """정문·학사경고처럼 큰 이름 + 작은 설명이 있는 특수 칸 모양 (자식들이 같이 쓴다)."""
+        r = self.inner(rect)
+        pygame.draw.rect(surface, bg, r, border_radius=config.TILE_RADIUS)
         draw_text(surface, title, get_font(config.FONT_BODY, title_size), fg,
-                  (rect.centerx, rect.y + rect.h * 0.38))
-        draw_text(surface, sub, get_font(config.FONT_BODY, 14), fg,
-                  (rect.centerx, rect.y + rect.h * 0.68))
-        pygame.draw.rect(surface, config.INK, rect, 2)
+                  (r.centerx, r.y + r.h * 0.33))
+        draw_text(surface, sub, get_font(config.FONT_BODY, 13), sub_color or fg,
+                  (r.centerx, r.y + r.h * 0.56))
 
 
 class StartTile(Tile):
@@ -51,7 +55,7 @@ class StartTile(Tile):
         game.log(f"{player.name}: 정문 도착")
 
     def draw(self, surface, rect):
-        self._draw_special(surface, rect, config.START_BG, config.START_TEXT, self.name, "← 출발", 24)
+        self._draw_special(surface, rect, config.START_BG, config.START_TEXT, self.name, "← 출발", 20)
 
 
 class IslandTile(Tile):
@@ -63,7 +67,7 @@ class IslandTile(Tile):
 
     def draw(self, surface, rect):
         self._draw_special(surface, rect, config.ISLAND_BG, config.ISLAND_TEXT, self.name,
-                           f"{config.ISLAND_REST_TURNS}턴 쉬기", 20)
+                           f"{config.ISLAND_REST_TURNS}턴 쉬기", 18, config.ISLAND_SUB)
 
 
 class ChanceTile(Tile):
@@ -75,26 +79,30 @@ class ChanceTile(Tile):
         card.execute(player, game)                     # 카드가 할 일은 카드가 안다 (다형성)
 
     def draw(self, surface, rect):
-        pygame.draw.rect(surface, config.CHANCE_BG, rect)
-        self._draw_key(surface, rect.centerx + 4, rect.y + rect.h * 0.4)
-        draw_text(surface, self.name, get_font(config.FONT_BODY, 16), config.CHANCE_TEXT,
-                  (rect.centerx, rect.y + rect.h * 0.77))
-        pygame.draw.rect(surface, config.INK, rect, 2)
+        r = self.inner(rect)
+        pygame.draw.rect(surface, config.CHANCE_BG, r, border_radius=config.TILE_RADIUS)
+        self.draw_key(surface, r.centerx + 2, r.y + r.h * 0.36, config.CHANCE_BG)
+        draw_text(surface, self.name, get_font(config.FONT_BODY, 15), config.CHANCE_TEXT,
+                  (r.centerx, r.y + r.h * 0.66))
 
     @staticmethod
-    def _draw_key(surface, cx, cy):
+    def draw_key(surface, cx, cy, hole_color, scale=1.0):
+        """열쇠 아이콘. 칸과 '게임 방법' 창이 같이 쓴다 (크기만 scale로)"""
         gold, ink = config.KEY_GOLD, config.INK
         cx, cy = int(cx), int(cy)
-        parts = [pygame.Rect(cx - 6, cy - 5, 32, 10),        # 열쇠 몸통
-                 pygame.Rect(cx + 18, cy + 3, 6, 10),        # 큰 이
-                 pygame.Rect(cx + 9, cy + 3, 6, 7)]          # 작은 이
+
+        def size(v):
+            return int(round(v * scale))
+        parts = [pygame.Rect(cx - size(4), cy - size(4), size(26), size(8)),       # 열쇠 몸통
+                 pygame.Rect(cx + size(15), cy + size(2), size(5), size(8)),       # 큰 이
+                 pygame.Rect(cx + size(7), cy + size(2), size(5), size(6))]        # 작은 이
         for part in parts:
             pygame.draw.rect(surface, gold, part, border_radius=2)
-            pygame.draw.rect(surface, ink, part, 3, border_radius=2)
-        pygame.draw.circle(surface, gold, (cx - 16, cy), 14)  # 손잡이 고리
-        pygame.draw.circle(surface, ink, (cx - 16, cy), 14, 3)
-        pygame.draw.circle(surface, config.CHANCE_BG, (cx - 16, cy), 5)
-        pygame.draw.circle(surface, ink, (cx - 16, cy), 5, 2)
+            pygame.draw.rect(surface, ink, part, 2, border_radius=2)
+        pygame.draw.circle(surface, gold, (cx - size(12), cy), size(11))     # 손잡이 고리
+        pygame.draw.circle(surface, ink, (cx - size(12), cy), size(11), 2)
+        pygame.draw.circle(surface, hole_color, (cx - size(12), cy), size(4))
+        pygame.draw.circle(surface, ink, (cx - size(12), cy), size(4), 2)
 
 
 class PropertyTile(Tile):
@@ -191,30 +199,30 @@ class PropertyTile(Tile):
 
     # ----- 그리기 -----
     def draw(self, surface, rect):
-        pygame.draw.rect(surface, config.TILE_BG, rect)
+        r = self.inner(rect)
+        pygame.draw.rect(surface, config.TILE_BG, r, border_radius=config.TILE_RADIUS)
         if self.owner:                                  # 주인 색으로 옅게 칠하기
-            draw_shade(surface, rect, (*self.owner.color, config.OWNER_TINT_ALPHA))
+            draw_shade(surface, r, (*self.owner.color, config.OWNER_TINT_ALPHA), config.TILE_RADIUS)
 
-        band = pygame.Rect(rect.x, rect.y, rect.w, self.BAND_HEIGHT)
-        pygame.draw.rect(surface, self.band_color, band)
-        draw_text(surface, f"{self.price:,}원", get_font(config.FONT_BODY, 13), config.WHITE, band.center)
+        band = pygame.Rect(r.x, r.y, r.w, self.BAND_HEIGHT)
+        pygame.draw.rect(surface, self.band_color, band,
+                         border_top_left_radius=config.TILE_RADIUS, border_top_right_radius=config.TILE_RADIUS)
+        draw_text(surface, f"{self.price:,}원", get_font(config.FONT_BODY, 14), config.WHITE, band.center)
 
-        name_size = 17 if len(self.name) <= 4 else 16
-        name_y = rect.y + self.BAND_HEIGHT + (rect.h - self.BAND_HEIGHT) // 2
-        draw_text(surface, self.name, get_font(config.FONT_BODY, name_size), config.NAVY,
-                  (rect.centerx, name_y))
-        pygame.draw.rect(surface, config.INK, rect, 2)
+        name_size = 18 if len(self.name) <= 4 else 16
+        draw_text(surface, self.name, get_font(config.FONT_BODY, name_size), config.INK,
+                  (r.centerx, r.y + 46))
         if self.owner:
-            pygame.draw.rect(surface, self.owner.color, rect.inflate(-4, -4), 4)   # 주인 색 테두리
-            self._draw_flag(surface, rect)
-            self.toll_level.draw(surface, rect, self.toll)   # 단계마다 자기 모양대로 (최대는 금색 테두리)
-        self._draw_flash(surface, rect)
+            pygame.draw.rect(surface, self.owner.color, r, 3, border_radius=config.TILE_RADIUS)   # 주인 색 테두리
+            self._draw_flag(surface, r)
+            self.toll_level.draw(surface, r, self.toll)   # 단계마다 자기 모양대로 (최대는 금색 테두리)
+        self._draw_flash(surface, r)
 
     def _draw_flag(self, surface, rect):
         """오른쪽 아래 작은 깃발: 누구 땅인지 표시."""
-        pole_x, top, bottom = rect.right - 14, rect.bottom - 34, rect.bottom - 9
+        pole_x, top, bottom = rect.right - 10, rect.bottom - 30, rect.bottom - 6
         pygame.draw.line(surface, config.INK, (pole_x, top), (pole_x, bottom), 3)
-        flag = [(pole_x, top), (pole_x - 20, top + 6), (pole_x, top + 12)]
+        flag = [(pole_x, top), (pole_x - 16, top + 5), (pole_x, top + 10)]
         pygame.draw.polygon(surface, self.owner.color, flag)
         pygame.draw.polygon(surface, config.INK, flag, 2)
 
@@ -232,7 +240,7 @@ class PropertyTile(Tile):
             return
         t = elapsed / config.FLASH_MS                     # 0 → 1
         color = self.owner.color if self.owner else config.YELLOW
-        draw_shade(surface, rect, (*color, int(140 * (1 - t))))
+        draw_shade(surface, rect, (*color, int(140 * (1 - t))), config.TILE_RADIUS)
 
         pill = pygame.Rect(0, 0, rect.w - 20, 30)
         pill.center = (rect.centerx, rect.centery - int(18 * t))
